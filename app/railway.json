@@ -1,0 +1,7 @@
+{
+   "build": {
+     "nixpacks": {
+       "start": "python -m app.main"
+     }
+   }
+ }
