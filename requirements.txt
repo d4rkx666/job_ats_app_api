@@ -1,0 +1,9 @@
+fastapi
+openai
+pydantic
+uvicorn
+python-dotenv
+firebase_admin
+pydantic-settings
+PyPDF2
+python-multipart
