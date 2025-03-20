@@ -29,7 +29,7 @@ class Settings(BaseSettings):
    openai_api_key: str
 
    # Firebase settings
-   firebase_credentials_path: str
+   firebase_credentials: str
 
    class Config:
       env_file = ".env"
