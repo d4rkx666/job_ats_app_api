@@ -56,9 +56,19 @@ async def signup(signup_request: InsertDataRequest):
          "role": "user",  # Default role
          "createdAt": datetime.now(),
          "is_active": True,  # Default status
-         "settings": {  # Default settings
-            "maximumImprovements": 10,
+         "settings": { # Default settings
+            "maximumImprovements": settings.app_free_initial_improvements,
             "resumeImprovements": 0,
+            "features": { 
+               "prioritySupport": False,
+               "unlimitedImprovements": False
+            }
+         },
+         "subscription": { 
+            "plan": "free",
+            "status": "active",
+            "startDate": "",
+            "endDate": ""
          }
       }
 

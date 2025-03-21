@@ -42,10 +42,10 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
          resume_text += page.extract_text()
 
       # Check if has improvements left
-      validate_improvements_left = await has_improvements(user["uid"])
-      if(validate_improvements_left["hasImprovementsLeft"]):
-         new_resume = await optimize_resume(resume_text, job_title, job_description, lang)
-         await add_improvement(validate_improvements_left["user_ref"], job_title, job_description, new_resume["optimized_resume"])
+      validate_user_data = await getUserData(user["uid"])
+      if(validate_user_data["hasImprovementsLeft"]):
+         new_resume = await optimize_resume(resume_text, job_title, job_description, lang, validate_user_data["currentPlan"])
+         await add_improvement(validate_user_data["user_ref"], job_title, job_description, new_resume["optimized_resume"])
          return new_resume
       else: 
          raise HTTPException(status_code=203, detail="You have not improvements left.")
@@ -64,6 +64,7 @@ async def add_improvement(user_ref: dict, job_title: str, job_description: str, 
          "job_title": job_title,
          "job_description": job_description,
          "ai_improvements": new_improvement,
+         "current_version": "free",
          "createdAt": datetime.now(),
          "status": "completed"
       }
@@ -83,23 +84,33 @@ async def add_improvement(user_ref: dict, job_title: str, job_description: str, 
       raise HTTPException(status_code=500, detail=str(e))
 
 
-async def has_improvements(user_id: str):
+async def getUserData(user_id: str):
    try:
       user_ref = db.collection("users").document(user_id)
       user_doc = user_ref.get()
+
+      # Info needed
       hasImprovementsLeft = False
+      currentPlan = "free"
 
       if user_doc.exists:
          current_user = user_doc.to_dict()
          settings = current_user.get("settings", {})
+         suscription = current_user.get("suscription", {})
+
+         # Calculate improvements left
          resume_improvements = settings.get("resumeImprovements", 10)
          maximum_improvements = settings.get("maximumImprovements", 10)
 
+         # Get plan
+         currentPlan = suscription.get("plan", "free")
+
+         # Validate improvements left
          if resume_improvements <= maximum_improvements:
             hasImprovementsLeft = True
       else:
          raise HTTPException(status_code=404, detail="User not found")
 
-      return {"hasImprovementsLeft": hasImprovementsLeft, "user_ref": user_ref}
+      return {"hasImprovementsLeft": hasImprovementsLeft, "currentPlan": currentPlan, "user_ref": user_ref}
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))

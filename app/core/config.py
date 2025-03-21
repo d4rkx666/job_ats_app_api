@@ -3,27 +3,30 @@ from typing import Dict
 
 class Settings(BaseSettings):
    # App settings
-   app_name: str = "Job ATS App"
-   app_version: str = "1.0.0"
-   app_description: str = "An AI-powered resume optimization service."
+   app_name: str
+   app_version: str
+   app_description: str
 
    #variables
    app_lang_en: str
    app_lang_es: str
 
-   #type of responses
-   type_response: Dict[str, str]
+   # Service config
+   app_free_initial_improvements: int
+   app_free_model: str
+   app_pro_model: str
+   app_business_model: str
 
+   # Type of responses
+   type_response: Dict[str, str]
    status_response: Dict[str, str]
 
    # Server settings
-   host: str = "0.0.0.0"  # Default to localhost
-   port: int = 8000  # Default port
+   host: str
+   port: int
 
    # CORS settings
-   cors_origins: list[str] = [
-   "http://localhost:3000",  # React frontend
-   ]
+   cors_origins: list[str]
 
    # OpenAI settings
    openai_api_key: str
