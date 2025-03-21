@@ -8,6 +8,7 @@ from PyPDF2 import PdfReader
 import io
 import uuid
 from datetime import datetime
+import re
 
 router = APIRouter()
 
@@ -44,6 +45,8 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
       # Check if has improvements left
       validate_user_data = await getUserData(user["uid"])
       if(validate_user_data["hasImprovementsLeft"]):
+         # Clean job description
+         job_description = clean_text(job_description)
          new_resume = await optimize_resume(resume_text, job_title, job_description, lang, validate_user_data["currentPlan"])
          await add_improvement(validate_user_data["user_ref"], job_title, job_description, new_resume["optimized_resume"])
 
@@ -116,3 +119,15 @@ async def getUserData(user_id: str):
       return {"hasImprovementsLeft": hasImprovementsLeft, "currentPlan": currentPlan, "user_ref": user_ref}
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
+
+   def clean_text(text):
+      # Remove extra spaces (including tabs and multiple spaces)
+      text = re.sub(r'\s+', ' ', text)
+      
+      # Remove line breaks
+      text = text.replace('\n', ' ')
+      
+      # Trim leading and trailing spaces
+      text = text.strip()
+      
+      return text
