@@ -15,10 +15,10 @@ async def optimize_resume(resume_text: str, job_title, job_description, lang, pl
       # Lang
       match lang:
             case settings.app_lang_en:
-                  role_system = "You are a helpful assistant that optimizes resumes for ATS. Always without exception return your responses in the following JSON format: [{'category': String, 'suggestions': String[]}]"
+                  role_system = "You are a helpful assistant that optimizes resumes for ATS. Always return String responses in valid JSON format: [{\"category\": string, \"suggestions\": string[]}]"
                   role_user = f"Analyze this resume: {resume_text}, and suggest improvements for this job description: {job_description}."
             case settings.app_lang_es:
-                  role_system = "Eres un asistente útil que optimiza CV para pasar el ATS. Siempre sin excepción regresa tus respuestas con este formato JSON: [{'category': String, 'suggestions': String[]}]"
+                  role_system = "Eres un asistente útil que optimiza CV para pasar el ATS. Siempre regresa respuestas en String con formato JSON válido: [{\"category\": string, \"suggestions\": string[]}]"
                   role_user = f"Analiza este CV: {resume_text}, y sugiere mejoras para esta descripción de trabajo: {job_description}."
             case _:
                   continue_process = False
@@ -50,9 +50,6 @@ async def optimize_resume(resume_text: str, job_title, job_description, lang, pl
             # Get the response and print it
             model_response = completion.choices[0].message.content
 
-            # Load the JSON string 
-            data = json.loads(model_response)
-
-            return {"optimized_resume": data}
+            return {"optimized_resume": model_response}
       else:
             raise HTTPException(status_code=408, detail="Language not found.")

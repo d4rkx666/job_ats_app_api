@@ -46,6 +46,7 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
       if(validate_user_data["hasImprovementsLeft"]):
          new_resume = await optimize_resume(resume_text, job_title, job_description, lang, validate_user_data["currentPlan"])
          await add_improvement(validate_user_data["user_ref"], job_title, job_description, new_resume["optimized_resume"])
+
          return new_resume
       else: 
          raise HTTPException(status_code=203, detail="You have not improvements left.")
@@ -105,8 +106,9 @@ async def getUserData(user_id: str):
          # Get plan
          currentPlan = suscription.get("plan", "free")
 
+
          # Validate improvements left
-         if resume_improvements <= maximum_improvements:
+         if resume_improvements < maximum_improvements:
             hasImprovementsLeft = True
       else:
          raise HTTPException(status_code=404, detail="User not found")
