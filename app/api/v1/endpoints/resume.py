@@ -120,14 +120,14 @@ async def getUserData(user_id: str):
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
 
-   def clean_text(text):
-      # Remove extra spaces (including tabs and multiple spaces)
-      text = re.sub(r'\s+', ' ', text)
-      
-      # Remove line breaks
-      text = text.replace('\n', ' ')
-      
-      # Trim leading and trailing spaces
-      text = text.strip()
-      
-      return text
+def clean_text(text):
+   # Remove extra spaces (including tabs and multiple spaces)
+   text = re.sub(r'\s+', ' ', text)
+   
+   # Remove line breaks
+   text = text.replace('\n', ' ')
+   
+   # Trim leading and trailing spaces
+   text = text.strip()
+   
+   return text
