@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from app.services.firebase_service import db  # Import the Firestore client
 from firebase_admin import firestore
-from app.models.schemas import ResumeRequest, OptimizedResumeResponse
+from app.models.schemas import OptimizedResumeResponse
 from app.services.openai_service import optimize_resume
 from app.core.security import get_current_user
 from PyPDF2 import PdfReader

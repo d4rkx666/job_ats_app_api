@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.endpoints import resume,auth,feedback
+from app.api.v1.endpoints import resume,auth,feedback, profile
 from app.core.config import settings
-from app.services.firebase_service import initialize_firebase
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -27,6 +26,7 @@ async def root():
 
 app.include_router(feedback.router, prefix="/api/v1")
 app.include_router(resume.router, prefix="/api/v1")
+app.include_router(profile.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 
 # Run the app (optional, for development)

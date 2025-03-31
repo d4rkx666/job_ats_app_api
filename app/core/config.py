@@ -18,10 +18,10 @@ class Settings(BaseSettings):
    app_business_model: str
 
    # AI config
-   app_ai_role_system_en: str
-   app_ai_role_user_en: str
-   app_ai_role_system_es: str
-   app_ai_role_user_es: str
+   app_ai_c1_role_system_en: str
+   app_ai_c1_role_user_en: str
+   app_ai_c1_role_system_es: str
+   app_ai_c1_role_user_es: str
 
    # Type of responses
    type_response: Dict[str, str]

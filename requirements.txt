@@ -7,3 +7,5 @@ firebase_admin
 pydantic-settings
 PyPDF2
 python-multipart
+bleach
+pydantic[email]
