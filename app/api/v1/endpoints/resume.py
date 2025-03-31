@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from app.services.firebase_service import db  # Import the Firestore client
 from firebase_admin import firestore
-from app.models.schemas import OptimizedResumeResponse
+from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, OptimizedKeywordsResponse
 from app.services.openai_service import optimize_resume
 from app.core.security import get_current_user
 from PyPDF2 import PdfReader
+from app.utils.text import clean_text, extract_keywords, calculate_job_match, format_resume_to_plain_text
 import io
 import uuid
 from datetime import datetime
-import re
 
 router = APIRouter()
 
@@ -57,6 +57,51 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
       
    except Exception as e:
          raise HTTPException(status_code=500, detail=str(e))
+   
+
+@router.post("/extract-keywords", response_model = OptimizedKeywordsResponse)
+async def extract_keywords_endpoint(request: KeywordOptimizationRequest, user: dict = Depends(get_current_user)):
+
+   try:
+      # Validate subsciption
+      validate_user_data = await getUserData(user["uid"])
+      isProUser = False
+
+      if(validate_user_data["currentPlan"] == "pro"):
+         isProUser = True
+
+      # Init response
+      data = {
+         "keywords": [],
+         "match": 0,
+         "success": True,
+         "error": ""
+      }
+
+      # Check request type
+      match request.type:
+         case "free":
+            # Extract free no matter the user
+            data["keywords"] = extract_keywords(request.job_description, request.lang)
+            profile = format_resume_to_plain_text(validate_user_data["profile"])
+            data["match"] = calculate_job_match(profile,data["keywords"])
+            
+         #case "pro":
+            # Extract
+            #if(isProUser):
+               # Extract with AI
+         case _:
+            data["sucess"] = False
+            data["error"] = "Plan not found."
+
+      # Save data to firestore
+      await add_keywords(validate_user_data["user_ref"], request.job_title, request.job_description, data["keywords"])
+
+      return OptimizedKeywordsResponse(**data)
+
+      
+   except Exception as e:
+         raise HTTPException(status_code=501, detail=str(e))
 
 
 async def add_improvement(user_ref: dict, job_title: str, job_description: str, new_improvement: str):
@@ -85,7 +130,35 @@ async def add_improvement(user_ref: dict, job_title: str, job_description: str, 
          "message": "Improvement added successfully",
       }
    except Exception as e:
-      raise HTTPException(status_code=500, detail=str(e))
+      raise HTTPException(status_code=501, detail=str(e))
+   
+
+async def add_keywords(user_ref: dict, job_title: str, job_description: str, keywords: dict, ):
+   try:
+
+      #Create dict to add
+      inserting_data = {
+         "id": str(uuid.uuid4()),
+         "job_title": job_title,
+         "job_description": job_description,
+         "keywords": keywords,
+         "createdAt": datetime.now(),
+         "status": "draft"
+      }
+
+      # Add the new improvement to the array
+      user_ref.update({
+         "creations": firestore.ArrayUnion([inserting_data]),
+         "settings.resumeCreations": firestore.Increment(1),
+      })
+
+      return {
+         "status": "success",
+         "type": "add_keywords",
+         "message": "Improvement added successfully",
+      }
+   except Exception as e:
+      raise HTTPException(status_code=501, detail=str(e))
 
 
 async def getUserData(user_id: str):
@@ -101,6 +174,7 @@ async def getUserData(user_id: str):
          current_user = user_doc.to_dict()
          settings = current_user.get("settings", {})
          suscription = current_user.get("suscription", {})
+         profile = current_user.get("profile", {})
 
          # Calculate improvements left
          resume_improvements = settings.get("resumeImprovements", 10)
@@ -116,18 +190,6 @@ async def getUserData(user_id: str):
       else:
          raise HTTPException(status_code=404, detail="User not found")
 
-      return {"hasImprovementsLeft": hasImprovementsLeft, "currentPlan": currentPlan, "user_ref": user_ref}
+      return {"hasImprovementsLeft": hasImprovementsLeft, "currentPlan": currentPlan, "profile": profile, "user_ref": user_ref}
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
-
-def clean_text(text):
-   # Remove extra spaces (including tabs and multiple spaces)
-   text = re.sub(r'\s+', ' ', text)
-   
-   # Remove line breaks
-   text = text.replace('\n', ' ')
-   
-   # Trim leading and trailing spaces
-   text = text.strip()
-   
-   return text

@@ -15,11 +15,11 @@ async def optimize_resume(resume_text: str, job_title, job_description, lang, pl
       # Lang
       match lang:
             case settings.app_lang_en:
-                  role_system = settings.app_ai_role_system_en
-                  role_user = f"{settings.app_ai_role_user_en} resume:{resume_text} job description:{job_description}."
+                  role_system = settings.app_ai_c1_role_system_en
+                  role_user = f"{settings.app_ai_c1_role_user_en} resume:{resume_text} job description:{job_description}."
             case settings.app_lang_es:
-                  role_system = settings.app_ai_role_system_es
-                  role_user = f"{settings.app_ai_role_user_es} CV:{resume_text} puesto:{job_description}."
+                  role_system = settings.app_ai_c1_role_system_es
+                  role_user = f"{settings.app_ai_c1_role_user_es} CV:{resume_text} puesto:{job_description}."
             case _:
                   continue_process = False
 

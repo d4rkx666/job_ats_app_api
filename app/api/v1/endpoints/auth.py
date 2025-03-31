@@ -58,7 +58,9 @@ async def signup(signup_request: InsertDataRequest):
          "is_active": True,  # Default status
          "settings": { # Default settings
             "maximumImprovements": settings.app_free_initial_improvements,
+            "maximumCreations": settings.app_free_initial_creations,
             "resumeImprovements": 0,
+            "resumeCreations": 0,
             "features": { 
                "prioritySupport": False,
                "unlimitedImprovements": False

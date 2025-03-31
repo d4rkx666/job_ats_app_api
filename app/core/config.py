@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
    # Service config
    app_free_initial_improvements: int
+   app_free_initial_creations: int
    app_free_model: str
    app_pro_model: str
    app_business_model: str

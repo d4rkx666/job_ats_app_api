@@ -148,9 +148,29 @@ class ProfileRequest(BaseModel):
    jobs: list[ProfileJobSubRequest]
    projects: list[ProfileProjectSubRequest]
 
+class KeywordOptimizationRequest(BaseModel):
+   job_title: str
+   job_description: str
+   type: str
+   lang: str
+
+   @field_validator("job_title", "job_description", "lang")
+   @classmethod
+   def sanitize_strings(cls, v: str | None) -> str | None:
+      if not v:
+         return v
+      return clean(v)  # Strips HTML/JS tags
+
 
 
 
 ## RESPONSES
 class OptimizedResumeResponse(BaseModel):
    optimized_resume: str
+
+   
+class OptimizedKeywordsResponse(BaseModel):
+   keywords: list[str]
+   match: int
+   success: bool
+   error: str
