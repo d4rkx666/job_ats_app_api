@@ -29,8 +29,8 @@ class Settings(BaseSettings):
    status_response: Dict[str, str]
 
    # Server settings
-   host: str
-   port: int
+   host: str = "0.0.0.0"
+   port: int = "8000"
 
    # CORS settings
    cors_origins: list[str]
