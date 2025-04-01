@@ -33,7 +33,7 @@ class Settings(BaseSettings):
    port: int = "8000"
 
    # CORS settings
-   cors_origins: list[str]
+   cors_origins: str
 
    # OpenAI settings
    openai_api_key: str
