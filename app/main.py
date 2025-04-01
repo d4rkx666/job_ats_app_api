@@ -21,8 +21,8 @@ app.add_middleware(
 
 # Root endpoint
 @app.get("/")
-async def root():
-    return {"message": f"Welcome to {settings.app_name}!"}
+def health_check():
+    return {"status": "ok", "message": f"Welcome to {settings.app_name}!"}
 
 app.include_router(feedback.router, prefix="/api/v1")
 app.include_router(resume.router, prefix="/api/v1")
