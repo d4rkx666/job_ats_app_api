@@ -3,10 +3,6 @@ import spacy
 from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-# Load medium Spacy model (better than small for NLP tasks)
-nlp_es = spacy.load("es_core_news_md")
-nlp_en = spacy.load("en_core_web_md")
-
 def clean_text(text):
    # Remove extra spaces (including tabs and multiple spaces)
    text = re.sub(r'\s+', ' ', text)
@@ -27,13 +23,17 @@ def split_text(text):
 
 
 def extract_keywords(text, lang ):
+   # Load medium Spacy model (better than small for NLP tasks)
+
    min_word_length = 3
    top_n = 10
 
    # Preprocess with Spacy
    if(lang == "es"):
+      nlp_es = spacy.load("es_core_news_md")
       doc = nlp_es(text.lower())
    elif(lang == "en"):
+      nlp_en = spacy.load("en_core_web_md")
       doc = nlp_en(text.lower())
    
    
@@ -61,6 +61,13 @@ def extract_keywords(text, lang ):
       key=lambda x: x[1],
       reverse=True
    )
+
+   # Unload
+   if(lang == "es"):
+      spacy.unload("es_core_news_md")
+   elif(lang == "en"):
+      spacy.unload("en_core_web_md")  # Call this after processing
+   
    
    return [kw for kw, score in scored_keywords[:top_n]]
 
