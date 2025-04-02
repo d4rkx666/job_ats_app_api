@@ -151,10 +151,12 @@ class ProfileRequest(BaseModel):
 class KeywordOptimizationRequest(BaseModel):
    job_title: str
    job_description: str
-   type: str
+   type: str = None
    lang: str
+   isDraft: bool
+   idDraft: Optional[str] = None
 
-   @field_validator("job_title", "job_description", "lang")
+   @field_validator("job_title", "job_description", "type", "lang")
    @classmethod
    def sanitize_strings(cls, v: str | None) -> str | None:
       if not v:
@@ -167,10 +169,12 @@ class KeywordOptimizationRequest(BaseModel):
 ## RESPONSES
 class OptimizedResumeResponse(BaseModel):
    optimized_resume: str
+   success: bool
+   type_error: str
 
    
 class OptimizedKeywordsResponse(BaseModel):
    keywords: list[str]
-   match: int
+   score: int
    success: bool
-   error: str
+   type_error: str

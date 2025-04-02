@@ -12,8 +12,14 @@ class Settings(BaseSettings):
    app_lang_es: str
 
    # Service config
-   app_free_initial_improvements: int
-   app_free_initial_creations: int
+   app_free_initial_credits: int
+
+   # Costs
+   app_keyword_optimization_cost: int
+   app_resume_optimization_cost: int
+   app_resume_creation_cost: int
+
+   # Models
    app_free_model: str
    app_pro_model: str
    app_business_model: str

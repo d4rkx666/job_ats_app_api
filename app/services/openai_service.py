@@ -50,6 +50,6 @@ async def optimize_resume(resume_text: str, job_title, job_description, lang, pl
             # Get the response and print it
             model_response = completion.choices[0].message.content
 
-            return {"optimized_resume": model_response}
+            return model_response
       else:
-            raise HTTPException(status_code=408, detail="Language not found.")
+            return ""

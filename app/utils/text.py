@@ -2,6 +2,7 @@ import re
 import spacy
 from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
+import gc
 
 def clean_text(text):
    # Remove extra spaces (including tabs and multiple spaces)
@@ -23,53 +24,55 @@ def split_text(text):
 
 
 def extract_keywords(text, lang ):
-   # Load medium Spacy model (better than small for NLP tasks)
+    # Load medium Spacy model (better than small for NLP tasks)
 
-   min_word_length = 3
-   top_n = 10
+    min_word_length = 3
+    top_n = 10
 
-   # Preprocess with Spacy
-   if(lang == "es"):
-      nlp_es = spacy.load("es_core_news_md")
-      doc = nlp_es(text.lower())
-   elif(lang == "en"):
-      nlp_en = spacy.load("en_core_web_md")
-      doc = nlp_en(text.lower())
-   
-   
-   # Extract meaningful tokens
-   keywords = [
-      token.lemma_ for token in doc
-      if not token.is_stop
-      and not token.is_punct
-      and len(token.text) >= min_word_length
-      and token.pos_ in ["NOUN", "PROPN", "VERB", "ADJ"]  # Nouns, verbs, adjectives
-   ]
-   
-   # Add noun chunks (phrases like "machine learning")
-   keywords += [chunk.text for chunk in doc.noun_chunks]
-   
-   # TF-IDF filtering
-   vectorizer = TfidfVectorizer(ngram_range=(1, 2))  # Include bigrams
-   tfidf = vectorizer.fit_transform([" ".join(keywords)])
-   feature_array = vectorizer.get_feature_names_out()
-   tfidf_scores = tfidf.toarray()[0]
-   
-   # Get top scored keywords
-   scored_keywords = sorted(
-      zip(feature_array, tfidf_scores),
-      key=lambda x: x[1],
-      reverse=True
-   )
+    # Preprocess with Spacy
+    if(lang == "es"):
+        nlp_es = spacy.load("es_core_news_md")
+        doc = nlp_es(text.lower())
+    elif(lang == "en"):
+        nlp_en = spacy.load("en_core_web_md")
+        doc = nlp_en(text.lower())
+    
+    
+    # Extract meaningful tokens
+    keywords = [
+        token.lemma_ for token in doc
+        if not token.is_stop
+        and not token.is_punct
+        and len(token.text) >= min_word_length
+        and token.pos_ in ["NOUN", "PROPN", "VERB", "ADJ"]  # Nouns, verbs, adjectives
+    ]
+    
+    # Add noun chunks (phrases like "machine learning")
+    keywords += [chunk.text for chunk in doc.noun_chunks]
+    
+    # TF-IDF filtering
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2))  # Include bigrams
+    tfidf = vectorizer.fit_transform([" ".join(keywords)])
+    feature_array = vectorizer.get_feature_names_out()
+    tfidf_scores = tfidf.toarray()[0]
+    
+    # Get top scored keywords
+    scored_keywords = sorted(
+        zip(feature_array, tfidf_scores),
+        key=lambda x: x[1],
+        reverse=True
+    )
 
-   # Unload
-   if(lang == "es"):
-      spacy.unload("es_core_news_md")
-   elif(lang == "en"):
-      spacy.unload("en_core_web_md")  # Call this after processing
-   
-   
-   return [kw for kw, score in scored_keywords[:top_n]]
+    # Unload
+    if(lang == "es"):
+        del nlp_es  # Remove reference
+    elif(lang == "en"):
+        del nlp_en  # Remove reference
+    
+    gc.collect()  # Force garbage collection
+    
+    
+    return [kw for kw, score in scored_keywords[:top_n]]
 
 
 def calculate_job_match(profile, keywords):
