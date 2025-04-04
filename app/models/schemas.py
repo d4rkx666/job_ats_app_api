@@ -92,8 +92,8 @@ class FeedbackRequest(BaseModel):
 class ProfilePersonalInformationRequest(BaseModel):
    email: EmailStr
    phone: str
-   linkedin: str
-   website: str
+   linkedin: Optional[str] = None
+   website: Optional[str] = None
 
    ## SANITAZING FIELDS FROM FRONT END
    @field_validator("website", "linkedin")
@@ -151,10 +151,25 @@ class ProfileRequest(BaseModel):
 class KeywordOptimizationRequest(BaseModel):
    job_title: str
    job_description: str
-   type: str
+   type: str = None
+   lang: str
+   isDraft: bool
+   idDraft: Optional[str] = None
+
+   @field_validator("job_title", "job_description", "type", "lang")
+   @classmethod
+   def sanitize_strings(cls, v: str | None) -> str | None:
+      if not v:
+         return v
+      return clean(v)  # Strips HTML/JS tags
+
+class CreateResumeRequest(BaseModel):
+   template: str
+   coverLetter: bool
+   idDraft: Optional[str] = None
    lang: str
 
-   @field_validator("job_title", "job_description", "lang")
+   @field_validator("template", "lang")
    @classmethod
    def sanitize_strings(cls, v: str | None) -> str | None:
       if not v:
@@ -163,14 +178,16 @@ class KeywordOptimizationRequest(BaseModel):
 
 
 
-
 ## RESPONSES
 class OptimizedResumeResponse(BaseModel):
    optimized_resume: str
+   success: bool
+   type_error: str
 
    
 class OptimizedKeywordsResponse(BaseModel):
    keywords: list[str]
-   match: int
+   score: int
+   idDraft: str
    success: bool
-   error: str
+   type_error: str

@@ -6,6 +6,7 @@ from firebase_admin import auth, firestore
 from app.services.firebase_service import db  # Import the Firestore client
 from app.core.config import settings
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 router = APIRouter()
 
@@ -51,26 +52,34 @@ async def signup(signup_request: InsertDataRequest):
       # Adding extra data to Firestore
       configs = {
          "name": signup_request.name,
-         "country": signup_request.country,
          "email": signup_request.email,
+         "country": signup_request.country,
          "role": "user",  # Default role
          "createdAt": datetime.now(),
          "is_active": True,  # Default status
-         "settings": { # Default settings
-            "maximumImprovements": settings.app_free_initial_improvements,
-            "maximumCreations": settings.app_free_initial_creations,
-            "resumeImprovements": 0,
-            "resumeCreations": 0,
-            "features": { 
-               "prioritySupport": False,
-               "unlimitedImprovements": False
+         "usage": {
+            "current_credits": settings.app_free_initial_credits,  # Free tier default
+            "total_credits": settings.app_free_initial_credits,
+            "used_credits": 0,
+            "last_reset": datetime.now(),
+            "next_reset": datetime.now() + relativedelta(months=1),
+            "actions": {
+               "keyword_optimizations": 0,
+               "resume_optimizations": 0,
+               "resume_creations": 0,
             }
          },
-         "subscription": { 
+         "subscription": {
             "plan": "free",
             "status": "active",
-            "startDate": "",
-            "endDate": ""
+            "stripe_id": "",
+            "current_period_start": None,
+            "current_period_end": None,
+            "payment_method": "None",
+            "history": []
+         },
+         "features": {
+            "priority_support": False,
          }
       }
 

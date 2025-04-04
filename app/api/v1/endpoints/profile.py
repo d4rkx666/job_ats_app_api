@@ -39,9 +39,6 @@ async def update_personal_information_endpoint(profile_request: ProfileSkillsReq
       # Add the new improvement to the array
       user_ref.update({
          "profile.skills": profile_request.skills,
-         "profile.education": [],
-         "profile.jobs": [],
-         "profile.projects": [],
       })
 
       return {
@@ -61,7 +58,6 @@ async def update_profile_endpoint(profile_request: ProfileRequest,user: dict = D
 
       #Create dict to add
       inserting_data = {
-         "skills": [],
          "education": [model_to_dict(edu) for edu in profile_request.educations],
          "jobs": [model_to_dict(job) for job in profile_request.jobs],
          "projects": [model_to_dict(proj) for proj in profile_request.projects],

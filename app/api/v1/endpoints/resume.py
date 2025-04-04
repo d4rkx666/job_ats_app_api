@@ -1,36 +1,44 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from app.services.firebase_service import db  # Import the Firestore client
-from firebase_admin import firestore
-from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, OptimizedKeywordsResponse
-from app.services.openai_service import optimize_resume
+from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, OptimizedKeywordsResponse, CreateResumeRequest
+from app.services.openai_service import optimize_resume, create_resume
 from app.core.security import get_current_user
+from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_score, deduct_credits,update_draft
+from app.services.templates_management import get_templates, get_global_rules
 from PyPDF2 import PdfReader
-from app.utils.text import clean_text, extract_keywords, calculate_job_match, format_resume_to_plain_text
+from app.utils.text import clean_text, extract_keywords, calculate_job_match, format_resume_to_plain_text, to_json
 import io
-import uuid
-from datetime import datetime
 
 router = APIRouter()
 
 @router.post("/optimize-resume", response_model = OptimizedResumeResponse)
 async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: str = Form(...), job_description: str = Form(...), lang: str = Form(...),user: dict = Depends(get_current_user)):
 
+   # Current function for credits
+   current_function = "resume_optimizations"
+
    try:
       # Validate file type
       allowed_file_types = ["application/pdf"]
+
+      # Response
+      response = {
+         "optimized_resume": "",
+         "success": True,
+         "type_error": ""
+      }
       if resume.content_type not in allowed_file_types:
-         raise HTTPException(
-            status_code=400,
-            detail="Invalid file type. Only PDF files are allowed."
-         )
+         response["success"] = False
+         response["type_error"] = "invalid_file_type"
+         
+         return response
 
       # Validate file size (e.g., 5MB limit)
       max_file_size = 5 * 1024 * 1024  # 5MB
       if resume.size > max_file_size:
-         raise HTTPException(
-            status_code=400,
-            detail=f"File size exceeds the limit of {max_file_size / 1024 / 1024}MB."
-         )
+         response["success"] = False
+         response["type_error"] = "file_size_exceeded"
+         
+         return response
 
       # Convert PDF to Text
       resume_content = await resume.read()
@@ -44,15 +52,27 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
 
       # Check if has improvements left
       validate_user_data = await getUserData(user["uid"])
-      if(validate_user_data["hasImprovementsLeft"]):
+
+      
+      # Validate remaining credits
+      hasCredits = await deduct_credits(user["uid"], current_function)
+      if(hasCredits):
          # Clean job description
          job_description = clean_text(job_description)
-         new_resume = await optimize_resume(resume_text, job_title, job_description, lang, validate_user_data["currentPlan"])
-         await add_improvement(validate_user_data["user_ref"], job_title, job_description, new_resume["optimized_resume"])
 
-         return new_resume
+
+         #Get optimized suggestions
+         response["optimized_resume"] = await optimize_resume(resume_text, job_title, job_description, lang, validate_user_data["currentPlan"])
+
+         # Add suggestions to firebase
+         await add_improvement(validate_user_data["user_ref"], job_title, job_description, response["optimized_resume"])
+
+         return response
       else: 
-         raise HTTPException(status_code=203, detail="You have not improvements left.")
+         response["success"] = False
+         response["type_error"] = "no_credits_left"
+
+         return response
 
       
    except Exception as e:
@@ -62,134 +82,151 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
 @router.post("/extract-keywords", response_model = OptimizedKeywordsResponse)
 async def extract_keywords_endpoint(request: KeywordOptimizationRequest, user: dict = Depends(get_current_user)):
 
+   # Current function for credits
+   current_function = "keyword_optimizations"
+
    try:
-      # Validate subsciption
+
+      # Get user data
       validate_user_data = await getUserData(user["uid"])
+      
+      # Validate subscription
       isProUser = False
 
       if(validate_user_data["currentPlan"] == "pro"):
          isProUser = True
 
       # Init response
-      data = {
+      response = {
          "keywords": [],
-         "match": 0,
+         "score": 0,
+         "idDraft": "",
          "success": True,
-         "error": ""
+         "type_error": ""
       }
 
-      # Check request type
-      match request.type:
-         case "free":
-            # Extract free no matter the user
-            data["keywords"] = extract_keywords(request.job_description, request.lang)
-            profile = format_resume_to_plain_text(validate_user_data["profile"])
-            data["match"] = calculate_job_match(profile,data["keywords"])
-            
-         #case "pro":
-            # Extract
-            #if(isProUser):
-               # Extract with AI
-         case _:
-            data["sucess"] = False
-            data["error"] = "Plan not found."
+      # Validate if draft
+      if(request.isDraft):
+         # Validate credits before updating
+         hasCredits = await deduct_credits(user["uid"], current_function)
+         if(hasCredits):
+            newData = await update_score(validate_user_data["user_ref"], validate_user_data["creations"], request.idDraft, validate_user_data["profile"])
+            response["score"] = newData["score"]
+            response["keywords"] = newData["keywords"]
+         else:
+            response["success"] = False
+            response["type_error"] = "no_credits_left"
+            return response
+      else:
+         # Check request type
+         match request.type:
+            case "free":
+               # Validate credits before updating
+               hasCredits = await deduct_credits(user["uid"], current_function)
+               if(hasCredits):
+                  # Extract free no matter the user
+                  response["keywords"] = extract_keywords(request.job_description, request.lang)
+                  profile = format_resume_to_plain_text(validate_user_data["profile"])
+                  response["score"] = calculate_job_match(profile, response["keywords"])
+               else:
+                  response["success"] = False
+                  response["type_error"] = "no_credits_left"
+                  return response
+               
+            #case "pro":
+               # Extract
+               #if(isProUser):
+                  # Extract with AI
+            case _:
+               response["success"] = False
+               response["type_error"] = "plan_not_found"
+               return response
 
-      # Save data to firestore
-      await add_keywords(validate_user_data["user_ref"], request.job_title, request.job_description, data["keywords"])
+         # Save data to firestore
+         insert = await add_keywords(validate_user_data["user_ref"], request.job_title, request.job_description, response["keywords"], response["score"])
+         response["idDraft"] = insert["idInserted"]
 
-      return OptimizedKeywordsResponse(**data)
+      return OptimizedKeywordsResponse(**response)
 
       
    except Exception as e:
          raise HTTPException(status_code=501, detail=str(e))
-
-
-async def add_improvement(user_ref: dict, job_title: str, job_description: str, new_improvement: str):
-   try:
-
-      #Create dict to add
-      inserting_data = {
-         "id": str(uuid.uuid4()),
-         "job_title": job_title,
-         "job_description": job_description,
-         "ai_improvements": new_improvement,
-         "current_version": "free",
-         "createdAt": datetime.now(),
-         "status": "completed"
-      }
-
-      # Add the new improvement to the array
-      user_ref.update({
-         "improvements": firestore.ArrayUnion([inserting_data]),
-         "settings.resumeImprovements": firestore.Increment(1),
-      })
-
-      return {
-         "status": "success",
-         "type": "add_improvement",
-         "message": "Improvement added successfully",
-      }
-   except Exception as e:
-      raise HTTPException(status_code=501, detail=str(e))
    
 
-async def add_keywords(user_ref: dict, job_title: str, job_description: str, keywords: dict, ):
+
+@router.post("/create-resume")
+async def create_resume_endpoint(request: CreateResumeRequest, user: dict = Depends(get_current_user)):
+
+   # Current function for credits
+   current_function = "resume_creations"
+
    try:
 
-      #Create dict to add
-      inserting_data = {
-         "id": str(uuid.uuid4()),
-         "job_title": job_title,
-         "job_description": job_description,
-         "keywords": keywords,
-         "createdAt": datetime.now(),
-         "status": "draft"
+      # Init response
+      response = {
+         "resume": "",
+         "ats_score": 0,
+         "tips": [],
+         "success": True,
+         "type_error": ""
       }
 
-      # Add the new improvement to the array
-      user_ref.update({
-         "creations": firestore.ArrayUnion([inserting_data]),
-         "settings.resumeCreations": firestore.Increment(1),
-      })
+      # Get user data
+      validate_user_data = await getUserData(user["uid"])
 
-      return {
-         "status": "success",
-         "type": "add_keywords",
-         "message": "Improvement added successfully",
-      }
-   except Exception as e:
-      raise HTTPException(status_code=501, detail=str(e))
+      # Validate subscription
+      isProUser = False
+      if(validate_user_data["currentPlan"] == "pro"):
+         isProUser = True
 
+      # Get templates
+      manageTemplate = await get_templates()
+      template = manageTemplate.get(request.template,{})
+      
+      # Validates if the template is pro and the user is not pro
+      if(template.get("isPro", True)):
+         if(not isProUser):
+            response["success"] = False
+            response["type_error"] = "user_not_pro_plan"
+            return response
+         
+         
+      if(request.coverLetter):
+         if(not isProUser):
+            response["success"] = False
+            response["type_error"] = "user_not_pro_plan"
+            return response
+         
+      # Finds creations by ID
+      creation = next(item for item in validate_user_data["creations"] if item["id"] == request.idDraft)
+      #print(clean_text(creation["job_description"]))
+      
+      
+      # Validate credits then call AI
+      hasCredits = await deduct_credits(user["uid"], current_function)
+      if(hasCredits):
+         globalRules = await get_global_rules()
+         response["resume"] = await create_resume(format_resume_to_plain_text(validate_user_data["profile"], True), validate_user_data["name"], validate_user_data["email"], validate_user_data["linkedin"], validate_user_data["website"], clean_text(creation["job_description"]), creation["keywords"], template, globalRules, request.lang, validate_user_data["currentPlan"])
 
-async def getUserData(user_id: str):
-   try:
-      user_ref = db.collection("users").document(user_id)
-      user_doc = user_ref.get()
+         json_str = to_json(response["resume"])
+         print(json_str)
 
-      # Info needed
-      hasImprovementsLeft = False
-      currentPlan = "free"
-
-      if user_doc.exists:
-         current_user = user_doc.to_dict()
-         settings = current_user.get("settings", {})
-         suscription = current_user.get("suscription", {})
-         profile = current_user.get("profile", {})
-
-         # Calculate improvements left
-         resume_improvements = settings.get("resumeImprovements", 10)
-         maximum_improvements = settings.get("maximumImprovements", 10)
-
-         # Get plan
-         currentPlan = suscription.get("plan", "free")
-
-
-         # Validate improvements left
-         if resume_improvements < maximum_improvements:
-            hasImprovementsLeft = True
+         if(json_str):
+            response["resume"] = json_str["resume"]
+            response["tips"] = json_str["tips"]
+            response["ats_score"] = json_str["ats_score"]
+            await update_draft(validate_user_data["user_ref"], response["resume"], response["tips"], response["ats_score"], validate_user_data["creations"], request.idDraft)
+         else:
+            response["success"] = False
+            response["type_error"] = "incorrect_json"
+            return response
       else:
-         raise HTTPException(status_code=404, detail="User not found")
+         response["success"] = False
+         response["type_error"] = "no_credits_left"
+         return response
 
-      return {"hasImprovementsLeft": hasImprovementsLeft, "currentPlan": currentPlan, "profile": profile, "user_ref": user_ref}
+      return response
+
+      
    except Exception as e:
-      raise HTTPException(status_code=500, detail=str(e))
+         raise HTTPException(status_code=501, detail=str(e))
