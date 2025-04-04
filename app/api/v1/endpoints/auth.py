@@ -80,7 +80,6 @@ async def signup(signup_request: InsertDataRequest):
          },
          "features": {
             "priority_support": False,
-            "advanced_ai_models": False
          }
       }
 

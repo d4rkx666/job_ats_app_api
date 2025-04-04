@@ -92,8 +92,8 @@ class FeedbackRequest(BaseModel):
 class ProfilePersonalInformationRequest(BaseModel):
    email: EmailStr
    phone: str
-   linkedin: str
-   website: str
+   linkedin: Optional[str] = None
+   website: Optional[str] = None
 
    ## SANITAZING FIELDS FROM FRONT END
    @field_validator("website", "linkedin")
