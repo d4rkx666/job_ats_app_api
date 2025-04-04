@@ -163,6 +163,18 @@ class KeywordOptimizationRequest(BaseModel):
          return v
       return clean(v)  # Strips HTML/JS tags
 
+class CreateResumeRequest(BaseModel):
+   template: str
+   coverLetter: bool
+   idDraft: Optional[str] = None
+   lang: str
+
+   @field_validator("template", "lang")
+   @classmethod
+   def sanitize_strings(cls, v: str | None) -> str | None:
+      if not v:
+         return v
+      return clean(v)  # Strips HTML/JS tags
 
 
 
@@ -176,5 +188,6 @@ class OptimizedResumeResponse(BaseModel):
 class OptimizedKeywordsResponse(BaseModel):
    keywords: list[str]
    score: int
+   idDraft: str
    success: bool
    type_error: str

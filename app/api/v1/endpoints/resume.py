@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, OptimizedKeywordsResponse
-from app.services.openai_service import optimize_resume
+from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, OptimizedKeywordsResponse, CreateResumeRequest
+from app.services.openai_service import optimize_resume, create_resume
 from app.core.security import get_current_user
-from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_score, deduct_credits
+from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_score, deduct_credits,update_draft
+from app.services.templates_management import get_templates, get_global_rules
 from PyPDF2 import PdfReader
-from app.utils.text import clean_text, extract_keywords, calculate_job_match, format_resume_to_plain_text
+from app.utils.text import clean_text, extract_keywords, calculate_job_match, format_resume_to_plain_text, to_json
 import io
 
 router = APIRouter()
@@ -99,6 +100,7 @@ async def extract_keywords_endpoint(request: KeywordOptimizationRequest, user: d
       response = {
          "keywords": [],
          "score": 0,
+         "idDraft": "",
          "success": True,
          "type_error": ""
       }
@@ -141,9 +143,89 @@ async def extract_keywords_endpoint(request: KeywordOptimizationRequest, user: d
                return response
 
          # Save data to firestore
-         await add_keywords(validate_user_data["user_ref"], request.job_title, request.job_description, response["keywords"], response["score"])
+         insert = await add_keywords(validate_user_data["user_ref"], request.job_title, request.job_description, response["keywords"], response["score"])
+         response["idDraft"] = insert["idInserted"]
 
       return OptimizedKeywordsResponse(**response)
+
+      
+   except Exception as e:
+         raise HTTPException(status_code=501, detail=str(e))
+   
+
+
+@router.post("/create-resume")
+async def create_resume_endpoint(request: CreateResumeRequest, user: dict = Depends(get_current_user)):
+
+   # Current function for credits
+   current_function = "resume_creations"
+
+   try:
+
+      # Init response
+      response = {
+         "resume": "",
+         "ats_score": 0,
+         "tips": [],
+         "success": True,
+         "type_error": ""
+      }
+
+      # Get user data
+      validate_user_data = await getUserData(user["uid"])
+
+      # Validate subscription
+      isProUser = False
+      if(validate_user_data["currentPlan"] == "pro"):
+         isProUser = True
+
+      # Get templates
+      manageTemplate = await get_templates()
+      template = manageTemplate.get(request.template,{})
+      
+      # Validates if the template is pro and the user is not pro
+      if(template.get("isPro", True)):
+         if(not isProUser):
+            response["success"] = False
+            response["type_error"] = "user_not_pro_plan"
+            return response
+         
+         
+      if(request.coverLetter):
+         if(not isProUser):
+            response["success"] = False
+            response["type_error"] = "user_not_pro_plan"
+            return response
+         
+      # Finds creations by ID
+      creation = next(item for item in validate_user_data["creations"] if item["id"] == request.idDraft)
+      #print(clean_text(creation["job_description"]))
+      
+      
+      # Validate credits then call AI
+      hasCredits = await deduct_credits(user["uid"], current_function)
+      if(hasCredits):
+         globalRules = await get_global_rules()
+         response["resume"] = await create_resume(format_resume_to_plain_text(validate_user_data["profile"], True), validate_user_data["name"], validate_user_data["email"], validate_user_data["linkedin"], validate_user_data["website"], clean_text(creation["job_description"]), creation["keywords"], template, globalRules, request.lang, validate_user_data["currentPlan"])
+
+         json_str = to_json(response["resume"])
+         print(json_str)
+
+         if(json_str):
+            response["resume"] = json_str["resume"]
+            response["tips"] = json_str["tips"]
+            response["ats_score"] = json_str["ats_score"]
+            await update_draft(validate_user_data["user_ref"], response["resume"], response["tips"], response["ats_score"], validate_user_data["creations"], request.idDraft)
+         else:
+            response["success"] = False
+            response["type_error"] = "incorrect_json"
+            return response
+      else:
+         response["success"] = False
+         response["type_error"] = "no_credits_left"
+         return response
+
+      return response
 
       
    except Exception as e:

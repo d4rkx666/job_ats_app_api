@@ -16,21 +16,27 @@ async def getUserData(user_id: str):
 
       if user_doc.exists:
          current_user = user_doc.to_dict()
+
+         # Personal data
+         name = current_user.get("name", "")
+         email = current_user.get("email", "")
+         linkedin = current_user.get("linkedin", "")
+         website = current_user.get("website", "")
+
+         # Other info
          setting = current_user.get("settings", {})
-         suscription = current_user.get("suscription", {})
+         suscription = current_user.get("subscription", {})
          profile = current_user.get("profile", {})
          creations = current_user.get("creations", [])
-
+ 
          # Get plan
          currentPlan = suscription.get("plan", "free")
       else:
          raise HTTPException(status_code=404, detail="User not found")
 
-      return {"creations": creations, "currentPlan": currentPlan, "profile": profile, "user_ref": user_ref}
+      return {"creations": creations, "currentPlan": currentPlan, "profile": profile, "name": name, "email": email, "linkedin": linkedin, "website": website, "user_ref": user_ref}
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
-   
-
 
 async def add_improvement(user_ref: dict, job_title: str, job_description: str, new_improvement: str):
    try:
@@ -71,7 +77,7 @@ async def add_keywords(user_ref: dict, job_title: str, job_description: str, key
          "job_title": job_title,
          "job_description": job_description,
          "keywords": keywords,
-         "score": score,
+         "ats_score": score,
          "createdAt": datetime.now(),
          "status": "draft"
       }
@@ -85,6 +91,7 @@ async def add_keywords(user_ref: dict, job_title: str, job_description: str, key
          "status": "success",
          "method": "add_keywords",
          "type": "add_keywords",
+         "idInserted": inserting_data["id"],
          "message": "Improvement added successfully",
       }
    except Exception as e:
@@ -105,7 +112,7 @@ async def update_score(user_ref: dict, creations: dict, idDraft: str, profile: s
             # Get profile again
             profile = format_resume_to_plain_text(profile)
             newScore = calculate_job_match(profile, keywords)
-            updated_creations.append({**creation, "score": newScore})  # Update score
+            updated_creations.append({**creation, "ats_score": newScore})  # Update score
          else:
             updated_creations.append(creation)
       
@@ -118,6 +125,32 @@ async def update_score(user_ref: dict, creations: dict, idDraft: str, profile: s
       }
    except Exception as e:
       raise HTTPException(status_code=501, detail=str(e))
+   
+
+   
+async def update_draft(user_ref: dict, resume: str, tips:dict, global_ats_score: int, creations: dict, idDraft: str):
+
+   try:
+      updated_creations = []
+
+      for creation in creations:
+         if creation.get("id") == idDraft:
+            # Extract keywords to reuse
+            # Get profile again
+            updated_creations.append({**creation, "status": "created", "resume": resume, "tips": tips, "ats_score": global_ats_score})  # Update
+         else:
+            updated_creations.append(creation)
+
+      # 3. Push changes to Firestore
+      user_ref.update({"creations": updated_creations})
+
+      return {
+         "status": "success",
+         "type": "update_draft",
+         "message": "Draft updated successfully",
+      }
+   except Exception as e:
+         raise HTTPException(status_code=500, detail=str(e))
    
 
 
