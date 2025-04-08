@@ -20,6 +20,7 @@ async def getUserData(user_id: str):
          # Personal data
          name = current_user.get("name", "")
          email = current_user.get("email", "")
+         phone = current_user.get("phone", "")
          linkedin = current_user.get("linkedin", "")
          website = current_user.get("website", "")
 
@@ -34,7 +35,7 @@ async def getUserData(user_id: str):
       else:
          raise HTTPException(status_code=404, detail="User not found")
 
-      return {"creations": creations, "currentPlan": currentPlan, "profile": profile, "name": name, "email": email, "linkedin": linkedin, "website": website, "user_ref": user_ref}
+      return {"creations": creations, "currentPlan": currentPlan, "profile": profile, "user_ref": user_ref}
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
 
@@ -68,7 +69,7 @@ async def add_improvement(user_ref: dict, job_title: str, job_description: str, 
       raise HTTPException(status_code=501, detail=str(e))
    
 
-async def add_keywords(user_ref: dict, job_title: str, job_description: str, keywords: dict, score: int):
+async def add_keywords(user_ref: dict, job_title: str, job_description: str, keywords: dict):
    try:
 
       #Create dict to add
@@ -77,7 +78,6 @@ async def add_keywords(user_ref: dict, job_title: str, job_description: str, key
          "job_title": job_title,
          "job_description": job_description,
          "keywords": keywords,
-         "ats_score": score,
          "createdAt": datetime.now(),
          "status": "draft"
       }
@@ -128,7 +128,7 @@ async def update_score(user_ref: dict, creations: dict, idDraft: str, profile: s
    
 
    
-async def update_draft(user_ref: dict, resume: str, tips:dict, global_ats_score: int, creations: dict, idDraft: str):
+async def update_draft(user_ref: dict, resume: str, ats:dict, keywords: list, creations: dict, idDraft: str):
 
    try:
       updated_creations = []
@@ -137,7 +137,7 @@ async def update_draft(user_ref: dict, resume: str, tips:dict, global_ats_score:
          if creation.get("id") == idDraft:
             # Extract keywords to reuse
             # Get profile again
-            updated_creations.append({**creation, "status": "created", "resume": resume, "tips": tips, "ats_score": global_ats_score})  # Update
+            updated_creations.append({**creation, "status": "created", "resume": resume, "keywords": keywords, "ats": ats})  # Update
          else:
             updated_creations.append(creation)
 

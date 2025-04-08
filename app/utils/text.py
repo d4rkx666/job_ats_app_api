@@ -148,19 +148,10 @@ def format_resume_to_plain_text(profile_data: dict, to_AI: bool = False) -> str:
 
 def to_json(json_str: str) -> dict:
     try:
-        # Step 1: Remove problematic control characters
-        json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_str)
-        
-        # Step 2: Ensure proper escaping for common issues
-        json_str = json_str.replace('\\', '\\\\')  # Escape existing backslashes
-        json_str = json_str.replace('\n', '\\n')   # Escape newlines
-        json_str = json_str.replace('\t', '\\t')   # Escape tabs
-        
-        # Step 3: Handle Unicode characters properly
-        json_str = json_str.encode('unicode-escape').decode('ascii')
-        json_str = json_str.replace('\\"', '"')  # Fix over-escaped quotes
-        
-        # Step 4: Final JSON parse with strict validation
+
+        json_str = json_str.replace("|", "\\|")
         return json.loads(json_str)
+    
     except Exception as e:
+        print(f"Error parsing JSON: {e}")
         return {}

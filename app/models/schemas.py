@@ -107,10 +107,10 @@ class ProfilePersonalInformationRequest(BaseModel):
    @field_validator("website", "linkedin")
    @classmethod
    def validate_url(cls, v: str | None) -> str | None:
-      if v and not v.startswith(("http://", "https://")):
+      if v and not v.startswith(("http://", "https://", "www.")):
          raise PydanticCustomError(
                "invalid_url",
-               "URL must start with http:// or https://"
+               "URL must start with http://, https:// or www"
          )
       return v
 
@@ -151,12 +151,11 @@ class ProfileRequest(BaseModel):
 class KeywordOptimizationRequest(BaseModel):
    job_title: str
    job_description: str
-   type: str = None
    lang: str
    isDraft: bool
    idDraft: Optional[str] = None
 
-   @field_validator("job_title", "job_description", "type", "lang")
+   @field_validator("job_title", "job_description", "lang")
    @classmethod
    def sanitize_strings(cls, v: str | None) -> str | None:
       if not v:
