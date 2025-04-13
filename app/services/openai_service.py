@@ -1,5 +1,6 @@
 from openai import OpenAI
 from app.core.config import settings
+from app.utils.text import clean_text
 
 client = OpenAI(api_key = settings.openai_api_key)
 
@@ -93,14 +94,14 @@ async def extract_keywords_ai(job_description, rules: dict, plan) -> str:
       return ""
       
 
-async def create_resume(profile: dict, keywords: dict, template: dict, pre_processing_rules: dict, global_rules: dict, lang: str, plan) -> dict:
+async def create_resume(profile: dict, keywords: dict, job_description_lang: str, template: dict, pre_processing_rules: dict, global_rules: dict, lang: str, plan) -> dict:
 
    # First PRE PROCESS THE RESUME
-   pre_processed_resume = await pre_process_resume(profile, keywords, pre_processing_rules, plan)
+   pre_processed_resume = await pre_process_resume(profile, keywords, pre_processing_rules, job_description_lang, plan)
 
    # VARIABLES
    role_system = f"{template["system"]}. STRICT RESPONSE RULES:{','.join(f'{r}' for r in global_rules["document_format"]["formats"])}."
-   role_user = f"{template["task"]}. Rules:{','.join(f'{r}' for r in template["rules"])}. Here is the resume:{pre_processed_resume}."
+   role_user = f"{template["task"]}. Rules:{','.join(f'{r}' for r in template["rules"])}. Here is the resume:{clean_text(pre_processed_resume)}."
    continue_process = True
 
    # Call OpenAI API
@@ -143,14 +144,14 @@ async def create_resume(profile: dict, keywords: dict, template: dict, pre_proce
       
       print("create resume: ")
       print(model_response)
-      return {"processed_resume":pre_processed_resume, "markdown_resume": model_response}
+      return model_response
    else:
       return ""
    
-async def pre_process_resume(profile: dict, keywords: dict, rules: dict, plan) -> str:
+async def pre_process_resume(profile: dict, keywords: dict, rules: dict, job_description_lang:str, plan) -> str:
 
    # VARIABLES
-   role_system = f"{rules["system"]}. STRICT RESPONSE RULES:{','.join(f'{r}' for r in rules["document_format"]["formats"])}"
+   role_system = f"{rules["system"]}. STRICT LANGUAGE OUTPUT:{job_description_lang}. STRICT RESPONSE RULES:{','.join(f'{r}' for r in rules["document_format"]["formats"])}"
    role_user = f"{rules["task"]} {','.join(f'{r}' for r in rules["rules"])}. Here are the JD keywords:[{','.join(f"{r["keyword"]}" for r in keywords)}] Here's the profile data:{str(profile)}"
    continue_process = True
 
@@ -194,8 +195,24 @@ async def pre_process_resume(profile: dict, keywords: dict, rules: dict, plan) -
 async def calculate_ats_score(markdown_resume: str, keywords: dict, rules: dict, plan) -> str:
 
    # VARIABLES
-   role_system = f"{rules["system"]}. STRICT RESPONSE RULES:{','.join(f'{r}' for r in rules["document_format"]["formats"])}. Output example: {rules["document_format"]["example"]}"
-   role_user = f"{rules["task"]}: {','.join(f'{r}' for r in rules["rules"])}. Here are the JD keywords:[{','.join(f"{r["keyword"]}" for r in keywords)}] Here's the resume in markdown format:[{markdown_resume}]"
+   #role_system = f"{rules["system"]}. STRICT RESPONSE RULES:{','.join(f'{r}' for r in rules["document_format"]["formats"])}. Output example: {rules["document_format"]["example"]}"
+   #role_user = f"{rules["task"]}: {','.join(f'{r}' for r in rules["rules"])}. Here are the JD keywords:[{','.join(f"{r["keyword"]}" for r in keywords)}] Here's the resume in markdown format:[{markdown_resume}]"
+   role_system = """"You are a strict ATS scanner for Fortune 500 companies. Analyze the resume markdown and:
+                  1.**Keyword Validation**:
+                     - Only count keywords in `Experience`/`Projects` as FULL matches (2 pts).
+                     - Keywords in `Skills`/`Education` count as HALF matches (1 pt).
+                     - Ignore keywords in headers/footers.
+                  2.**Context Rules**:
+                     - Flag "isolated keywords" (no supporting context). Example:
+                     - GOOD: "Optimized [Spring Boot] microservices (reduced latency by 30%)".
+                     - BAD: "Skills: Spring Boot".
+                  4.**Tips to improve**:
+                     - Give your BEST tips to improve this resume.
+                  5.**STRICTLY output a VALID JSON format without breaklines**: {"keyword_analysis":{"full_matches": [{"keyword": "Java", "section": "experience", "context": "Built [Java] services"}],"half_matches": [{"keyword": "AWS", "section": "skills"}],"missing_keywords": ["Hibernate"],"isolated_keywords": ["Python"]  # No context in experience},"structure_analysis": {"missing_sections": ["projects"],"section_order": ["work", "skills", "education"],"has_tables_graphics": false},"readability_analysis": {"long_bullets": 2,"action_verb_compliance": 0.85,"keyword_positioning": {"critical_keywords_in_first_third": ["Java"],"missing_in_first_third": ["Python"]}}, tips:["tip1","tip2"]}"""
+
+   role_user = f"""Analyze this resume in markdown format against the job description keywords with STRICT ATS rules:
+                  1. **Job Description Keywords**: {','.join(f"{r["keyword"]}" for r in keywords)}
+                  2. **Resume Markdown**: {markdown_resume}"""
    continue_process = True
 
    # Call OpenAI API
@@ -212,7 +229,7 @@ async def calculate_ats_score(markdown_resume: str, keywords: dict, rules: dict,
             model_gpt = settings.app_free_model
 
 
-      #print("calculate ats: \n"+role_system+"\n\n"+role_user+"\n\n")
+      print("calculate ats: \n"+role_system+"\n\n"+role_user+"\n\n")
       completion = client.chat.completions.create(
       model=model_gpt,
       messages=[

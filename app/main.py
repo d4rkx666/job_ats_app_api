@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.endpoints import resume,auth,feedback, profile
+from app.api.v1.endpoints import resume,auth,feedback, profile, export
 from app.core.config import settings
 
 # Initialize FastAPI app
@@ -28,6 +28,7 @@ app.include_router(feedback.router, prefix="/api/v1")
 app.include_router(resume.router, prefix="/api/v1")
 app.include_router(profile.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(export.router, prefix="/api/v1")
 
 # Run the app (optional, for development)
 if __name__ == "__main__":

@@ -174,6 +174,25 @@ class CreateResumeRequest(BaseModel):
       if not v:
          return v
       return clean(v)  # Strips HTML/JS tags
+   
+   
+class SaveResumeRequest(BaseModel):
+   idDraft: str
+   resume: str
+
+   @field_validator("resume")
+   @classmethod
+   def sanitize_strings(cls, v: str | None) -> str | None:
+      if not v:
+         return v
+      return clean(v)  # Strips HTML/JS tags
+   
+
+class ExportPDFRequest(BaseModel):
+   html: str
+
+class ExportDOCXRequest(BaseModel):
+   html: str
 
 
 

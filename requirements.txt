@@ -9,8 +9,7 @@ PyPDF2
 python-multipart
 bleach
 pydantic[email]
-spacy
-tfIdfInheritVectorizer
-https://github.com/explosion/spacy-models/releases/download/es_core_news_md-3.7.0/es_core_news_md-3.7.0-py3-none-any.whl
-https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.7.0/en_core_web_md-3.7.0-py3-none-any.whl
 python-dateutil
+pdfkit
+python-docx
+htmldocx

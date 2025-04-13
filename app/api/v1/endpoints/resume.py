@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, OptimizedKeywordsResponse, CreateResumeRequest
+from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, SaveResumeRequest, CreateResumeRequest
 from app.services.openai_service import optimize_resume, create_resume, extract_keywords_ai, calculate_ats_score
 from app.core.security import get_current_user
-from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_score, deduct_credits,update_draft
+from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_keywords_draft, deduct_credits,update_creation, update_resume
 from app.services.rules_management import get_templates, get_keywords_rules
 from app.services.log_saver import setChatGptError
 from PyPDF2 import PdfReader
-from app.utils.text import clean_text, to_json
+from app.utils.text import clean_text, to_json, process_ats_score
 import io
 
 router = APIRouter()
@@ -99,49 +99,35 @@ async def extract_keywords_endpoint(request: KeywordOptimizationRequest, user: d
 
       # Get user data
       validate_user_data = await getUserData(user["uid"])
-      
-      # Validate subscription
-      isProUser = False
 
-      if(validate_user_data["currentPlan"] == "pro"):
-         isProUser = True
+      # Get rules
+      manageRules= await get_keywords_rules()
 
-      # Validate if draft
-      if(request.isDraft):
-         # Validate credits before updating
-         hasCredits = await deduct_credits(user["uid"], current_function)
-         if(hasCredits):
-            newData = await update_score(validate_user_data["user_ref"], validate_user_data["creations"], request.idDraft, validate_user_data["profile"])
-            response["score"] = newData["score"]
-            response["keywords"] = newData["keywords"]
+      # Validate credits
+      hasCredits = await deduct_credits(user["uid"], current_function)
+      if(hasCredits):
+         # Extract with AI
+         jd_lang = ""
+         response["keywords"] = await extract_keywords_ai(clean_text(request.job_description), manageRules, validate_user_data["currentPlan"])
+         json_str = to_json(response["keywords"])
+         
+         if(json_str):
+            response["keywords"] = json_str["keywords"]
+            jd_lang = json_str["job_description_language"]
          else:
             response["success"] = False
-            response["type_error"] = "no_credits_left"
+            response["type_error"] = "incorrect_json"
+            setChatGptError(response["type_error"], response["keywords"], user["uid"])
             return response
-      else:
-
-         # Get rules
-         manageRules= await get_keywords_rules()
-
-         # Validate credits
-         hasCredits = await deduct_credits(user["uid"], current_function)
-         if(hasCredits):
-            # Extract with AI
-            response["keywords"] = await extract_keywords_ai(clean_text(request.job_description), manageRules, validate_user_data["currentPlan"])
-            json_str = to_json(response["keywords"])
-            
-            if(json_str):
-               response["keywords"] = json_str["keywords"]
-            else:
-               response["success"] = False
-               response["type_error"] = "incorrect_json"
-               setChatGptError(response["type_error"], response["keywords"], user["uid"])
-               return response
                
 
          # Save data to firestore
-         insert = await add_keywords(validate_user_data["user_ref"], request.job_title, request.job_description, response["keywords"])
-         response["idDraft"] = insert["idInserted"]
+         if(request.isDraft):
+            await update_keywords_draft(validate_user_data["user_ref"], validate_user_data["creations"], request.idDraft, response["keywords"])
+            response["idDraft"] = request.idDraft
+         else:
+            insert = await add_keywords(validate_user_data["user_ref"], request.job_title, request.job_description, jd_lang, response["keywords"])
+            response["idDraft"] = insert["idInserted"]
 
       return response
 
@@ -206,47 +192,77 @@ async def create_resume_endpoint(request: CreateResumeRequest, user: dict = Depe
          pre_processing_rules = manageTemplate.get("pre_process",{})
 
          # Returns markdown resume in plain text and pre processed resume in JSON
-         resp = await create_resume(validate_user_data["profile"], creation["keywords"], template, pre_processing_rules, globalRules, request.lang, validate_user_data["currentPlan"])
+         markdown_resume = await create_resume(validate_user_data["profile"], creation["keywords"],  creation["job_description_lang"], template, pre_processing_rules, globalRules, request.lang, validate_user_data["currentPlan"])
 
-         # Convert the pre processed resume
-         pre_processed_resume_json = to_json(resp["processed_resume"])
-         if(pre_processed_resume_json):
-            # Plain text markdown
-            response["resume"] = resp["markdown_resume"]
-            
-            # Update matched keywords:
-            matched_keywords = pre_processed_resume_json["matched_keywords"]
-            for item in creation["keywords"]:
-               if item["keyword"] in matched_keywords:
-                  item["matched"] = True
-               else:
-                  item["matched"] = False
+         # Plain text markdown
+         response["resume"] = markdown_resume
+         
+         # Update matched keywords:
+         """matched_keywords = pre_processed_resume_json["matched_keywords"]
+         for item in creation["keywords"]:
+            if item["keyword"] in matched_keywords:
+               item["matched"] = True
+            else:
+               item["matched"] = False"""
 
-            # Get the ATS score and tips
-            ats_score_rules = manageTemplate.get("ats_completion",{})
-            caculated_ats_score = await calculate_ats_score(response["resume"], creation["keywords"], ats_score_rules, validate_user_data["currentPlan"])
+         # Get the ATS score and tips
+         ats_score_rules = manageTemplate.get("ats_completion",{})
+         caculated_ats_score = await calculate_ats_score(response["resume"], creation["keywords"], ats_score_rules, validate_user_data["currentPlan"])
 
-            # Convert to json
-            caculated_ats_score_json = to_json(caculated_ats_score)
+         # Convert to json
+         caculated_ats_score_json = to_json(caculated_ats_score)
 
-            if(caculated_ats_score_json):
-               response["ats"] = caculated_ats_score_json["ats"]
-               # Add the resume and matched keywords
-               await update_draft(validate_user_data["user_ref"], response["resume"], response["ats"], creation["keywords"], validate_user_data["creations"], request.idDraft)
+         if(caculated_ats_score_json):
+            ats_score = process_ats_score(caculated_ats_score_json, creation["keywords"])
+            if(ats_score):
+               response["ats"] = ats_score["ats"]
+               creation["keywords"] = ats_score["keywords"]
             else:
                response["success"] = False
-               response["type_error"] = "incorrect_json"
-               setChatGptError(response["type_error"], str(caculated_ats_score), user["uid"])
+               response["type_error"] = "ats_not_processed"
+               await setChatGptError(response["type_error"], str(ats_score), user["uid"])
                return response
+            # Add the resume and matched keywords
+            await update_creation(validate_user_data["user_ref"], response["resume"], response["ats"], creation["keywords"], validate_user_data["creations"], request.idDraft)
          else:
             response["success"] = False
             response["type_error"] = "incorrect_json"
-            setChatGptError(response["type_error"], str(resp), user["uid"])
+            await setChatGptError(response["type_error"], str(caculated_ats_score), user["uid"])
             return response
       else:
          response["success"] = False
          response["type_error"] = "no_credits_left"
          return response
+
+      return response
+
+      
+   except Exception as e:
+      print(e)
+
+
+
+@router.post("/save-resume")
+async def save_resume_endpoint(request: SaveResumeRequest, user: dict = Depends(get_current_user)):
+
+   # Init response
+   response = {
+      "success": True,
+      "type_error": ""
+   }
+
+   try:
+      # Get user data
+      validate_user_data = await getUserData(user["uid"])
+
+      # Validate subscription
+      if(validate_user_data["currentPlan"] == "pro"):
+         if not await update_resume(validate_user_data["user_ref"], request.resume, validate_user_data["creations"], request.idDraft):
+            response["success"] = False
+            response["type_error"] = "not_updated"
+      else:
+         response["success"] = False
+         response["type_error"] = "user_not_pro_plan"
 
       return response
 

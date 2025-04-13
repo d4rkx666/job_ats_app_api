@@ -44,6 +44,9 @@ class Settings(BaseSettings):
    # OpenAI settings
    openai_api_key: str
 
+   # For exporting PDF
+   wkhtmltopdf_path: str
+
    # Firebase settings
    firebase_credentials: str
 
