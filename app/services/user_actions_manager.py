@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from firebase_admin import firestore
 from app.services.firebase_service import db
 from app.core.config import settings
+from app.services.db_variables import get_costs
 import uuid
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -166,15 +167,16 @@ async def deduct_credits(user_id: str, action: str) -> bool:
    try:
       user_ref = db.collection("users").document(user_id)
 
+      # get cost vars:
+      cost = get_costs()
+
       # Define credit costs
       CREDIT_COSTS = {
-         "keyword_optimizations": settings.app_keyword_optimization_cost,
-         "resume_optimizations": settings.app_resume_optimization_cost,
-         "resume_creations": settings.app_resume_creation_cost,
-         "resume_ats_analyzation": settings.app_resume_ats_analyzation,
+         "keyword_optimizations": cost.get("keyword_extraction"),
+         "resume_optimizations": cost.get("resume_optimization"),
+         "resume_creations": cost.get("resume_creation"),
+         "resume_ats_analyzation": cost.get("ats_analysis"),
       }
-
-      current_credits = 0
       
       @firestore.transactional
       def process(transaction):
