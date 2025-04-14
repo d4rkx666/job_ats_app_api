@@ -107,10 +107,10 @@ class ProfilePersonalInformationRequest(BaseModel):
    @field_validator("website", "linkedin")
    @classmethod
    def validate_url(cls, v: str | None) -> str | None:
-      if v and not v.startswith(("http://", "https://")):
+      if v and not v.startswith(("http://", "https://", "www.")):
          raise PydanticCustomError(
                "invalid_url",
-               "URL must start with http:// or https://"
+               "URL must start with http://, https:// or www"
          )
       return v
 
@@ -151,12 +151,11 @@ class ProfileRequest(BaseModel):
 class KeywordOptimizationRequest(BaseModel):
    job_title: str
    job_description: str
-   type: str = None
    lang: str
    isDraft: bool
    idDraft: Optional[str] = None
 
-   @field_validator("job_title", "job_description", "type", "lang")
+   @field_validator("job_title", "job_description", "lang")
    @classmethod
    def sanitize_strings(cls, v: str | None) -> str | None:
       if not v:
@@ -166,7 +165,7 @@ class KeywordOptimizationRequest(BaseModel):
 class CreateResumeRequest(BaseModel):
    template: str
    coverLetter: bool
-   idDraft: Optional[str] = None
+   idDraft: str
    lang: str
 
    @field_validator("template", "lang")
@@ -175,6 +174,37 @@ class CreateResumeRequest(BaseModel):
       if not v:
          return v
       return clean(v)  # Strips HTML/JS tags
+   
+
+class ReoptimizeResumeRequest(BaseModel):
+   resume_markdown: str
+   idCreation: str
+
+   @field_validator("resume_markdown")
+   @classmethod
+   def sanitize_strings(cls, v: str | None) -> str | None:
+      if not v:
+         return v
+      return clean(v)  # Strips HTML/JS tags
+   
+   
+class SaveResumeRequest(BaseModel):
+   idCreation: str
+   resume: str
+
+   @field_validator("resume")
+   @classmethod
+   def sanitize_strings(cls, v: str | None) -> str | None:
+      if not v:
+         return v
+      return clean(v)  # Strips HTML/JS tags
+   
+
+class ExportPDFRequest(BaseModel):
+   html: str
+
+class ExportDOCXRequest(BaseModel):
+   html: str
 
 
 

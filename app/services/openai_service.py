@@ -1,117 +1,307 @@
 from openai import OpenAI
-from app.core.config import settings
-from app.models.schemas import ResumeRequest
 import json
+from app.core.config import settings
+from app.utils.text import clean_text
+from app.services.chat_gpt_schema.api_schema import extract_keywords_schema, ats_score_schema
 
 client = OpenAI(api_key = settings.openai_api_key)
 
 async def optimize_resume(resume_text: str, job_title, job_description, lang, plan) -> str:
 
-      # VARIABLES
-      role_system = ""
-      role_user = f""
-      continue_process = True
+   # VARIABLES
+   role_system = ""
+   role_user = f""
+   continue_process = True
 
-      # Lang
-      match lang:
-            case settings.app_lang_en:
-                  role_system = settings.app_ai_c1_role_system_en
-                  role_user = f"{settings.app_ai_c1_role_user_en} resume:{resume_text} job description:{job_description}."
-            case settings.app_lang_es:
-                  role_system = settings.app_ai_c1_role_system_es
-                  role_user = f"{settings.app_ai_c1_role_user_es} CV:{resume_text} puesto:{job_description}."
-            case _:
-                  continue_process = False
+   # Lang
+   match lang:
+      case settings.app_lang_en:
+         role_system = settings.app_ai_c1_role_system_en
+         role_user = f"{settings.app_ai_c1_role_user_en} resume:{resume_text} job:{job_title} {job_description}."
+      case settings.app_lang_es:
+         role_system = settings.app_ai_c1_role_system_es
+         role_user = f"{settings.app_ai_c1_role_user_es} CV:{resume_text} puesto:{job_title} {job_description}."
+      case _:
+         continue_process = False
 
-      # Call OpenAI API
-      if(continue_process):
+   # Call OpenAI API
+   if(continue_process):
+      model_gpt = settings.app_free_model
+      match plan:
+         case "free":
             model_gpt = settings.app_free_model
-            match plan:
-                  case "free":
-                        model_gpt = settings.app_free_model
-                  case "pro":
-                        model_gpt = settings.app_pro_model
-                  case "business":
-                        model_gpt = settings.app_business_model
-                  case _:
-                        model_gpt = settings.app_free_model
-
-
-
-            completion = client.chat.completions.create(
-            model=model_gpt,
-            messages=[
-                  {"role": "system", "content": role_system},
-                  {"role": "user", "content": role_user}
-            ],
-                  max_tokens=500
-            )
-            
-            # Get the response and print it
-            model_response = completion.choices[0].message.content
-
-            return model_response
-      else:
-            return ""
-
-
-
-
-async def create_resume(profile: str, name: str, email: str, linkedin: str, website: str, job_description: str, keywords: str, template: dict, rules: dict, lang: str, plan) -> str:
-
-      # VARIABLES
-      role_system = template["system"]
-      role_user = f"{template["task"]} User profile:{name} {email} {linkedin} {website} {profile}. Job description:{job_description}. Keywords:{','.join(f'{kw}' for kw in keywords)}. Required sections:{', '.join(f'{kw}' for kw in rules["required_sections"])}, Rules:{','.join(f'{r}' for r in template["rules"])},{','.join(f'{r}' for r in rules["keyword_handling"])}. Strict response format: {rules["document_format"]["example"]}."
-      continue_process = True
-      current_lang = ""
-
-      # Lang
-      match lang:
-            case settings.app_lang_en:
-                  current_lang = "Response language: English"
-            case settings.app_lang_es:
-                  current_lang = "Response language: Spanish"
-            case _:
-                  continue_process = False
-
-      role_user = f"{role_user} {current_lang}"
-
-      # Call OpenAI API
-      if(continue_process):
+         case "pro":
+            model_gpt = settings.app_pro_model
+         case "business":
+            model_gpt = settings.app_business_model
+         case _:
             model_gpt = settings.app_free_model
-            match plan:
-                  case "free":
-                        model_gpt = settings.app_free_model
-                  case "pro":
-                        model_gpt = settings.app_pro_model
-                  case "business":
-                        model_gpt = settings.app_business_model
-                  case _:
-                        model_gpt = settings.app_free_model
 
 
 
-            """completion = client.chat.completions.create(
-            model=model_gpt,
-            messages=[
-                  {"role": "system", "content": role_system},
-                  {"role": "user", "content": role_user}
-            ],
-                  max_tokens=500
-            )
-            
-            # Get the response and print it
-            model_response = completion.choices[0].message.content"""
+      completion = client.chat.completions.create(
+      model=model_gpt,
+      messages=[
+         {"role": "system", "content": role_system},
+         {"role": "user", "content": role_user}
+      ],
+         max_tokens=800
+      )
+      
+      # Get the response and print it
+      model_response = completion.choices[0].message.content
 
-            model_response = """{
-  "resume": "---\n# **Felix Abraham Catzin Huh**  \n`themasterdarkness219@gmail.com`  \n\n---\n### **Professional Summary**  \nJava Full Stack Developer with 3+ years of experience in ==Spring==, ==AWS==, and ==REST APIs==. Strong expertise in problem-solving and multilingual (English/Spanish).  \n\n---\n## **Experience**  \n**==Especialista de Java==** @ Telcel *(Sep 2020 - Jan 2024)*  \n- Developed backend systems using ==Java EE==, ==Apache Camel==, and ==PostgreSQL==.  \n- Automated tasks via ==UNIX/Linux scripting== and deployed solutions on ==Cloud (AWS)==.  \n\n---\n## **Education**  \n**Ingenier\\u00eda en Tecnolog\\u00edas de la Informaci\\u00f3n**  \n*Universidad Tecnol\\u00f3gica de Canc\\u00fan* | 2014 - 2018  \n\n---\n## **Skills**  \n`Java` `Spring` `AWS` `PostgreSQL`  \n`Apache Camel` `REST APIs` `Groovy`  \n`IntelliJ/Eclipse` `UNIX/Linux`  \n`English & Spanish (Fluent)`  \n\n---\n*Format: Skills aligned right in 2-column layout. Keywords highlighted per prompt rules.*",
-  "tips": [
-    "For ATS, ensure keywords match the job description (e.g., 'Apache Camel' vs 'Cron Jobs').",
-    "Use bullet points for readability; avoid paragraphs longer than 2 lines.",
-    "If adding Projects, focus on quantifiable outcomes (e.g., 'Optimized API response time by 30%')."
-  ],
-  "ats_score": 80
-}"""
-            return model_response
-      else:
-            return ""
+      return model_response
+   else:
+      return ""
+
+
+async def extract_keywords_ai(job_description, rules: dict, plan) -> dict:
+
+   # VARIABLES
+   role_system = f"{rules["system"]}"
+   role_user = f"Job description: [{job_description}]"
+   continue_process = True
+
+   # Call OpenAI API
+   if(continue_process):
+      model_gpt = settings.app_free_model
+      match plan:
+         case "free":
+            model_gpt = settings.app_free_model
+         case "pro":
+            model_gpt = settings.app_free_model
+         case "business":
+            model_gpt = settings.app_business_model
+         case _:
+            model_gpt = settings.app_free_model
+
+      #print(role_system+"\n\n"+role_user)
+      completion = client.chat.completions.create(
+      model=model_gpt,
+      messages=[
+         {"role": "system", "content": role_system},
+         {"role": "user", "content": role_user}],
+      max_tokens=1000,
+      temperature= 0.5,
+      tools=extract_keywords_schema(rules),
+      tool_choice={"type": "function", "function": {"name": "extract_keywords"}},
+      )
+
+      model_response = completion.choices[0].message.tool_calls
+      json_response = {}
+      if model_response:
+         json_response = json.loads(
+            model_response[0].function.arguments
+         )
+
+      print("extracted kws:")
+      print(json_response)
+      return json_response
+   else:
+      return {}
+      
+
+async def create_resume(profile: dict, keywords: dict, job_description_lang: str, template: dict, pre_processing_rules: dict, global_rules: dict, lang: str, plan) -> str:
+   
+   continue_process = True
+
+   # First PRE PROCESS THE RESUME
+   json_processed_resume= await pre_process_resume(profile, keywords, pre_processing_rules, job_description_lang, plan)
+
+   # VARIABLES
+   role_system = f"""{template["system"]}.
+   STRICT RESPONSE RULES:
+   {'\n'.join(f'   - {r}' for r in global_rules["document_format"]["formats"])}."""
+
+   role_user = f"""{template["task"]}.
+   RULES:
+   {'\n'.join(f'   - {r}' for r in template["rules"])}.
+   
+   Here is the JSON resume: {clean_text(json_processed_resume)}"""
+   
+
+   # Call OpenAI API
+   if(continue_process):
+      model_gpt = settings.app_free_model
+      match plan:
+         case "free":
+            model_gpt = settings.app_free_model
+         case "pro":
+            model_gpt = settings.app_pro_model
+         case "business":
+            model_gpt = settings.app_business_model
+         case _:
+            model_gpt = settings.app_free_model
+
+
+      #print("create: \n"+role_system+"\n\n"+role_user)
+      completion = client.chat.completions.create(
+      model=model_gpt,
+      messages=[
+         {"role": "system", "content": role_system},
+         {"role": "user", "content": role_user}
+      ],
+         max_tokens=1000,
+      )
+      
+      # Get the response and print it
+      model_response = completion.choices[0].message.content
+      
+      print("create resume: ")
+      print(model_response)
+      return model_response
+   else:
+      return ""
+   
+async def pre_process_resume(profile: dict, keywords: dict, rules: dict, job_description_lang:str, plan) -> str:
+
+   # VARIABLES
+   role_system = f"""{rules["system"]}
+   
+   STRICT OUTPUT RULES:
+   - Language in {job_description_lang}
+   - Output a VALID JSON string without break lines nor extra spaces"""
+
+   role_user = f"""{rules["task"]}.
+
+   RULES:
+   {'\n'.join(f'  - {r}' for r in rules["rules"])}
+   
+   Job description keywords: {','.join(f"{r["keyword"]}" for r in keywords)}
+
+   Here's the JSON profile data: {str(profile)}"""
+   continue_process = True
+
+   # Call OpenAI API
+   if(continue_process):
+      model_gpt = settings.app_free_model
+      match plan:
+         case "free":
+            model_gpt = settings.app_free_model
+         case "pro":
+            model_gpt = settings.app_pro_model
+         case "business":
+            model_gpt = settings.app_business_model
+         case _:
+            model_gpt = settings.app_free_model
+
+
+      #print("preprocess: \n"+role_system+"\n\n"+role_user)
+      completion = client.chat.completions.create(
+         model=model_gpt,
+         messages=[
+            {"role": "system", "content": role_system},
+            {"role": "user", "content": role_user}],
+         max_tokens=1000,
+      )
+      
+      # Get the response and print it
+      model_response = completion.choices[0].message.content
+
+      print("pre process model: ")
+      print(model_response)
+      return model_response
+   else:
+      return ""
+
+
+
+async def calculate_ats_score(markdown_resume: str, keywords: dict, rules: dict, plan) -> dict:
+
+   # VARIABLES
+   role_system = f"{rules["system"]}"
+
+   role_user = f"""Job Description Keywords: {','.join(f"{r["keyword"]}" for r in keywords)}
+   Resume in Markdown: {markdown_resume}"""
+   continue_process = True
+
+   # Call OpenAI API
+   if(continue_process):
+      model_gpt = settings.app_free_model
+      match plan:
+         case "free":
+            model_gpt = settings.app_free_model
+         case "pro":
+            model_gpt = settings.app_pro_model
+         case "business":
+            model_gpt = settings.app_business_model
+         case _:
+            model_gpt = settings.app_free_model
+
+      completion = client.chat.completions.create(
+      model=model_gpt,
+      messages=[
+         {"role": "system", "content": role_system},
+         {"role": "user", "content": role_user}],
+      max_tokens=1000,
+      tools=ats_score_schema(rules),
+      tool_choice={"type": "function", "function": {"name": "ats_score"}},
+      )
+
+      # Extract the JSON arguments from the function call
+      model_response = completion.choices[0].message.tool_calls
+      json_response = {}
+      if model_response:
+         json_response = json.loads(
+            model_response[0].function.arguments
+         )
+      
+      print("ats score: ")
+      print(model_response[0].function.arguments)
+      return json_response
+   else:
+      return ""
+   
+
+
+async def recalculate_ats_score(markdown_resume: str, prev_analysis: str, keywords: dict, rules: dict, plan) -> dict:
+
+   # VARIABLES
+   role_system = f"""{rules["system"]}.
+   *IMPORTANT RULE*
+      - ONLY ANALYZE BASED ON YOUR PREVIOUS ANALYSIS
+      - ADD KEYWORDS MATCHED IN THE RESUME INTO YOUR ANALYSIS
+      
+   PREVIOUS ANALYSIS: {prev_analysis}"""
+
+   role_user = f"""Job Description Keywords: {','.join(f"{r["keyword"]}" for r in keywords)}
+   Resume in Markdown: {markdown_resume}"""
+   continue_process = True
+
+   # Call OpenAI API
+   if(continue_process):
+      model_gpt = settings.app_free_model
+      match plan:
+         case "free":
+            model_gpt = settings.app_free_model
+         case "pro":
+            model_gpt = settings.app_pro_model
+         case "business":
+            model_gpt = settings.app_business_model
+         case _:
+            model_gpt = settings.app_free_model
+
+      completion = client.chat.completions.create(
+      model=model_gpt,
+      messages=[
+         {"role": "system", "content": role_system},
+         {"role": "user", "content": role_user}],
+      max_tokens=1000,
+      tools=ats_score_schema(rules),
+      tool_choice={"type": "function", "function": {"name": "ats_score"}},
+      )
+
+      # Extract the JSON arguments from the function call
+      model_response = completion.choices[0].message.tool_calls
+      json_response = {}
+      if model_response:
+         json_response = json.loads(
+            model_response[0].function.arguments
+         )
+      
+      print("ats score: ")
+      print(model_response[0].function.arguments)
+      return json_response
+   else:
+      return ""

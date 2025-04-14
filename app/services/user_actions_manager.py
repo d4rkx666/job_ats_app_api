@@ -2,9 +2,10 @@ from fastapi import HTTPException
 from firebase_admin import firestore
 from app.services.firebase_service import db
 from app.core.config import settings
+from app.services.db_variables import get_costs
 import uuid
 from datetime import datetime
-from app.utils.text import calculate_job_match, format_resume_to_plain_text
+from dateutil.relativedelta import relativedelta
 
 async def getUserData(user_id: str):
    try:
@@ -17,14 +18,7 @@ async def getUserData(user_id: str):
       if user_doc.exists:
          current_user = user_doc.to_dict()
 
-         # Personal data
-         name = current_user.get("name", "")
-         email = current_user.get("email", "")
-         linkedin = current_user.get("linkedin", "")
-         website = current_user.get("website", "")
-
          # Other info
-         setting = current_user.get("settings", {})
          suscription = current_user.get("subscription", {})
          profile = current_user.get("profile", {})
          creations = current_user.get("creations", [])
@@ -34,7 +28,7 @@ async def getUserData(user_id: str):
       else:
          raise HTTPException(status_code=404, detail="User not found")
 
-      return {"creations": creations, "currentPlan": currentPlan, "profile": profile, "name": name, "email": email, "linkedin": linkedin, "website": website, "user_ref": user_ref}
+      return {"creations": creations, "currentPlan": currentPlan, "profile": profile, "user_ref": user_ref}
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
 
@@ -68,7 +62,7 @@ async def add_improvement(user_ref: dict, job_title: str, job_description: str, 
       raise HTTPException(status_code=501, detail=str(e))
    
 
-async def add_keywords(user_ref: dict, job_title: str, job_description: str, keywords: dict, score: int):
+async def add_keywords(user_ref: dict, job_title: str, job_description: str, jd_lang: str, keywords: dict):
    try:
 
       #Create dict to add
@@ -76,8 +70,8 @@ async def add_keywords(user_ref: dict, job_title: str, job_description: str, key
          "id": str(uuid.uuid4()),
          "job_title": job_title,
          "job_description": job_description,
+         "job_description_lang": jd_lang,
          "keywords": keywords,
-         "ats_score": score,
          "createdAt": datetime.now(),
          "status": "draft"
       }
@@ -98,56 +92,70 @@ async def add_keywords(user_ref: dict, job_title: str, job_description: str, key
       raise HTTPException(status_code=501, detail=str(e))
    
 
-async def update_score(user_ref: dict, creations: dict, idDraft: str, profile: str):
+async def update_keywords_draft(user_ref: dict, creations: dict, idDraft: str, keywords: dict):
    try:
-      #save keywords
-      keywords = None
-      updated_creations = []
-      newScore = 0
-      for creation in creations:
-         if creation.get("id") == idDraft:
-            # Extract keywords to reuse
-            keywords = creation.get("keywords", [])
+      success = True
+      creation_index = next((i for i, c in enumerate(creations) if c.get("id") == idDraft), None)
+        
+      if creation_index is not None:
+         # Update the specific creation's keywords
+         creations[creation_index]["keywords"] = keywords
 
-            # Get profile again
-            profile = format_resume_to_plain_text(profile)
-            newScore = calculate_job_match(profile, keywords)
-            updated_creations.append({**creation, "ats_score": newScore})  # Update score
-         else:
-            updated_creations.append(creation)
-      
-      # 3. Push changes to Firestore
-      user_ref.update({"creations": updated_creations})
+         # Push the update to Firestore
+         user_ref.update({"creations": creations})
+      else:
+         success = False
 
       return {
-         "score": newScore,
-         "keywords": keywords,
+         "success": success,
       }
    except Exception as e:
       raise HTTPException(status_code=501, detail=str(e))
    
 
    
-async def update_draft(user_ref: dict, resume: str, tips:dict, global_ats_score: int, creations: dict, idDraft: str):
+async def update_creation(user_ref: dict, resume: str, ats_analysis: dict, ats:dict, keywords: list, creations: dict, idDraft: str):
 
    try:
-      updated_creations = []
+      success = True
+      creation_index = next((i for i, c in enumerate(creations) if c.get("id") == idDraft), None)
 
-      for creation in creations:
-         if creation.get("id") == idDraft:
-            # Extract keywords to reuse
-            # Get profile again
-            updated_creations.append({**creation, "status": "created", "resume": resume, "tips": tips, "ats_score": global_ats_score})  # Update
-         else:
-            updated_creations.append(creation)
+      if creation_index is not None:
+         creations[creation_index]["status"] = "created"
+         creations[creation_index]["resume"] = resume
+         creations[creation_index]["keywords"] = keywords
+         creations[creation_index]["ats"] = ats
+         creations[creation_index]["ats_analysis"] = ats_analysis
+         
 
-      # 3. Push changes to Firestore
-      user_ref.update({"creations": updated_creations})
+         # Push the update to Firestore
+         user_ref.update({"creations": creations})
+      else:
+         success = False
 
       return {
-         "status": "success",
-         "type": "update_draft",
-         "message": "Draft updated successfully",
+         "success": success,
+      }
+   except Exception as e:
+         raise HTTPException(status_code=500, detail=str(e))
+   
+
+async def update_resume(user_ref: dict, resume: str, creations: dict, idDraft: str):
+
+   try:
+      success = True
+      creation_index = next((i for i, c in enumerate(creations) if c.get("id") == idDraft), None)
+
+      if creation_index is not None:
+         creations[creation_index]["resume"] = resume
+
+         # Push the update to Firestore
+         user_ref.update({"creations": creations})
+      else:
+         success = False
+
+      return {
+         "success": success,
       }
    except Exception as e:
          raise HTTPException(status_code=500, detail=str(e))
@@ -159,14 +167,16 @@ async def deduct_credits(user_id: str, action: str) -> bool:
    try:
       user_ref = db.collection("users").document(user_id)
 
+      # get cost vars:
+      cost = get_costs()
+
       # Define credit costs
       CREDIT_COSTS = {
-         "keyword_optimizations": settings.app_keyword_optimization_cost,
-         "resume_optimizations": settings.app_resume_optimization_cost,
-         "resume_creations": settings.app_resume_creation_cost,
+         "keyword_optimizations": cost.get("keyword_extraction"),
+         "resume_optimizations": cost.get("resume_optimization"),
+         "resume_creations": cost.get("resume_creation"),
+         "resume_ats_analyzation": cost.get("ats_analysis"),
       }
-
-      current_credits = 0
       
       @firestore.transactional
       def process(transaction):
@@ -186,3 +196,23 @@ async def deduct_credits(user_id: str, action: str) -> bool:
       return process(db.transaction())
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
+
+
+def reset_monthly_credits():
+   users_ref = db.collection("users")
+   
+   for user in users_ref.stream():
+      user_data = user.to_dict()
+      next_reset = user_data.get("usage", {}).get("next_reset")
+      
+      # Reset if next_reset is past or doesn't exist
+      if not next_reset or datetime.now() > next_reset:
+         plan = user_data.get("subscription", {}).get("plan", "free")
+         new_credits = settings.app_free_initial_credits if plan == "free" else settings.app_pro_reset_credits if plan == "pro" else 0
+         
+         # Update user with reset credits
+         user.reference.update({
+               "usage.current_credits": new_credits,
+               "usage.last_reset": datetime.now(),
+               "usage.next_reset": datetime.now() + relativedelta(month=1)
+         })

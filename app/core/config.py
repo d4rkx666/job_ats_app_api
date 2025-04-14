@@ -13,11 +13,7 @@ class Settings(BaseSettings):
 
    # Service config
    app_free_initial_credits: int
-
-   # Costs
-   app_keyword_optimization_cost: int
-   app_resume_optimization_cost: int
-   app_resume_creation_cost: int
+   app_pro_reset_credits: int
 
    # Models
    app_free_model: str
@@ -43,6 +39,9 @@ class Settings(BaseSettings):
 
    # OpenAI settings
    openai_api_key: str
+
+   # For exporting PDF
+   wkhtmltopdf_path: str
 
    # Firebase settings
    firebase_credentials: str

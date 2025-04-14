@@ -12,13 +12,18 @@ async def update_personal_information_endpoint(profile_request: ProfilePersonalI
    try:
       user_ref = db.collection("users").document(user["uid"])
 
-      # Add the new improvement to the array
-      user_ref.set({
+      #Create dict to add
+      inserting_data = {
          "phone": profile_request.phone,
          "email": profile_request.email,
          "linkedin": profile_request.linkedin,
          "website": profile_request.website,
-      },merge=True)
+      }
+
+      # Add the new improvement to the array
+      user_ref.update({
+         "profile.contact":inserting_data
+      })
 
       return {
          "status": "success",

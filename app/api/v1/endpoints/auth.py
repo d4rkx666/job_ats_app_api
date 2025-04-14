@@ -69,6 +69,12 @@ async def signup(signup_request: InsertDataRequest):
                "resume_creations": 0,
             }
          },
+         "profile":{
+            "contact":{
+               "name": signup_request.name,
+               "email": signup_request.email,
+            }
+         },
          "subscription": {
             "plan": "free",
             "status": "active",
@@ -92,10 +98,10 @@ async def signup(signup_request: InsertDataRequest):
          "type": "create_user",
          "message": "User created successfully",
          "user": {
-               "uid": user.uid,
-               "email": user.email,
-               "display_name": user.display_name,
-               "phone_number": user.phone_number,
+            "uid": user.uid,
+            "email": user.email,
+            "display_name": user.display_name,
+            "phone_number": user.phone_number,
          },
       }
    except Exception as e:
