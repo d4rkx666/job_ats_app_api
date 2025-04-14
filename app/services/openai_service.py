@@ -1,6 +1,8 @@
 from openai import OpenAI
+import json
 from app.core.config import settings
 from app.utils.text import clean_text
+from app.services.chat_gpt_schema.api_schema import extract_keywords_schema, ats_score_schema
 
 client = OpenAI(api_key = settings.openai_api_key)
 
@@ -54,11 +56,11 @@ async def optimize_resume(resume_text: str, job_title, job_description, lang, pl
       return ""
 
 
-async def extract_keywords_ai(job_description, rules: dict, plan) -> str:
+async def extract_keywords_ai(job_description, rules: dict, plan) -> dict:
 
    # VARIABLES
-   role_system = f"{rules["system"]}. STRICT RESPONSE RULES:{','.join(f'{r}' for r in rules["global_rules"]["formats"])}. Example: {rules["global_rules"]["example"]}"
-   role_user = f"{rules["user"]} [{job_description}]"
+   role_system = f"{rules["system"]}"
+   role_user = f"Job description: [{job_description}]"
    continue_process = True
 
    # Call OpenAI API
@@ -68,7 +70,7 @@ async def extract_keywords_ai(job_description, rules: dict, plan) -> str:
          case "free":
             model_gpt = settings.app_free_model
          case "pro":
-            model_gpt = settings.app_pro_model
+            model_gpt = settings.app_free_model
          case "business":
             model_gpt = settings.app_business_model
          case _:
@@ -79,30 +81,45 @@ async def extract_keywords_ai(job_description, rules: dict, plan) -> str:
       model=model_gpt,
       messages=[
          {"role": "system", "content": role_system},
-         {"role": "user", "content": role_user}
-      ],
-         max_tokens=1000,
-         temperature= 0.3,
+         {"role": "user", "content": role_user}],
+      max_tokens=1000,
+      temperature= 0.5,
+      tools=extract_keywords_schema(rules),
+      tool_choice={"type": "function", "function": {"name": "extract_keywords"}},
       )
-      
-      # Get the response and print it
-      model_response = completion.choices[0].message.content
-      #model_response="""{"keywords":[{"keyword":"Java","type":"hard skill","count":2},{"keyword":"Java 8","type":"hard skill","count":1},{"keyword":"Streams","type":"hard skill","count":1},{"keyword":"Lambdas","type":"hard skill","count":1},{"keyword":"Spring","type":"tool","count":1},{"keyword":"Inversion del Control (IoC)","type":"soft skill","count":1},{"keyword":"Inyeccion de dependencias (ID)","type":"soft skill","count":1},{"keyword":"Anotaciones y Estereotipos","type":"soft skill","count":1},{"keyword":"Data Web","type":"tool","count":1},{"keyword":"Lombok","type":"tool","count":1},{"keyword":"Rest Template","type":"tool","count":1},{"keyword":"Web Client","type":"tool","count":1},{"keyword":"Security","type":"soft skill","count":1},{"keyword":"SWAGGER","type":"tool","count":1},{"keyword":"ASYNC API","type":"tool","count":1},{"keyword":"Unite Test","type":"tool","count":1},{"keyword":"Junit","type":"tool","count":1},{"keyword":"Mokito","type":"tool","count":1},{"keyword":"Versionamiento e integracion continua","type":"soft skill","count":1},{"keyword":"CI | CD","type":"tool","count":1},{"keyword":"Maven","type":"tool","count":1},{"keyword":"Manejo de Git","type":"tool","count":1},{"keyword":"Jenkins","type":"tool","count":1},{"keyword":"Sonar","type":"tool","count":1},{"keyword":"Black Duck","type":"tool","count":1},{"keyword":"Veracode","type":"tool","count":1},{"keyword":"Fortify","type":"tool","count":1},{"keyword":"Nexus","type":"tool","count":1},{"keyword":"GIT Actions","type":"tool","count":1},{"keyword":"Jfrog","type":"tool","count":1},{"keyword":"Containerizacion","type":"soft skill","count":1},{"keyword":"Kubernetes","type":"tool","count":1},{"keyword":"OpenShift","type":"tool","count":1},{"keyword":"Secrets | ConfigMap","type":"tool","count":1},{"keyword":"Docker","type":"tool","count":1},{"keyword":"Patrones de Diseño","type":"soft skill","count":1},{"keyword":"Singleton","type":"soft skill","count":1},{"keyword":"Builder","type":"soft skill","count":1},{"keyword":"SOLID","type":"soft skill","count":1},{"keyword":"Microservicios","type":"soft skill","count":1},{"keyword":"Protocolo HTTP (conceptos, verbos)","type":"soft skill","count":1},{"keyword":"HHTP Metods","type":"soft skill","count":1},{"keyword":"TLS Verbs","type":"soft skill","count":1},{"keyword":"DB","type":"soft skill","count":1},{"keyword":"MySQL","type":"tool","count":1},{"keyword":"Posgress","type":"tool","count":1},{"keyword":"SQLServer","type":"tool","count":1},{"keyword":"Mongo DB","type":"tool","count":1},{"keyword":"Redis","type":"tool","count":1},{"keyword":"Herramientas Agile","type":"soft skill","count":1},{"keyword":"Jira","type":"tool","count":1},{"keyword":"Confluence","type":"tool","count":1},{"keyword":"Metodologias","type":"soft skill","count":1},{"keyword":"Scrum","type":"soft skill","count":1},{"keyword":"Kamban","type":"soft skill","count":1},{"keyword":"Waterfall","type":"soft skill","count":1}]}"""
-      print(model_response)
-      return model_response
+
+      model_response = completion.choices[0].message.tool_calls
+      json_response = {}
+      if model_response:
+         json_response = json.loads(
+            model_response[0].function.arguments
+         )
+
+      print("extracted kws:")
+      print(json_response)
+      return json_response
    else:
-      return ""
+      return {}
       
 
-async def create_resume(profile: dict, keywords: dict, job_description_lang: str, template: dict, pre_processing_rules: dict, global_rules: dict, lang: str, plan) -> dict:
+async def create_resume(profile: dict, keywords: dict, job_description_lang: str, template: dict, pre_processing_rules: dict, global_rules: dict, lang: str, plan) -> str:
+   
+   continue_process = True
 
    # First PRE PROCESS THE RESUME
-   pre_processed_resume = await pre_process_resume(profile, keywords, pre_processing_rules, job_description_lang, plan)
+   json_processed_resume= await pre_process_resume(profile, keywords, pre_processing_rules, job_description_lang, plan)
 
    # VARIABLES
-   role_system = f"{template["system"]}. STRICT RESPONSE RULES:{','.join(f'{r}' for r in global_rules["document_format"]["formats"])}."
-   role_user = f"{template["task"]}. Rules:{','.join(f'{r}' for r in template["rules"])}. Here is the resume:{clean_text(pre_processed_resume)}."
-   continue_process = True
+   role_system = f"""{template["system"]}.
+   STRICT RESPONSE RULES:
+   {'\n'.join(f'   - {r}' for r in global_rules["document_format"]["formats"])}."""
+
+   role_user = f"""{template["task"]}.
+   RULES:
+   {'\n'.join(f'   - {r}' for r in template["rules"])}.
+   
+   Here is the JSON resume: {clean_text(json_processed_resume)}"""
+   
 
    # Call OpenAI API
    if(continue_process):
@@ -130,17 +147,6 @@ async def create_resume(profile: dict, keywords: dict, job_description_lang: str
       
       # Get the response and print it
       model_response = completion.choices[0].message.content
-
-      """model_response = {
-         "resume": "# Felix Abraham Catzin Huh\\nfcatzin@hotmail.com\\n\\n## Professional Summary\\nDesarrollador Java con experiencia en diseño de APIs escalables y mantenimiento de sistemas robustos. Experto en optimización de código, arquitectura de microservicios y manejo de bases de datos. Contribuye a proyectos de alto impacto con un enfoque ágil y enfoque en la eficiencia operativa.\\n\\n## Skills\\n- **Java**\\n- **Spring Boot**\\n- Microservicios\\n- **API**\\n- **Oracle DB**\\n- **Jira**\\n- Scrum\\n- **CI/CD**\\n- Jenkins\\n- SonarQube\\n- **Android Studio**\\n- **GIT**\\n- **SVN**\\n- **Websphere**\\n\\n## Experience\\n### **Especialista de Java** - Telcel (9/2020 - 1/2024)\\n- Desarrollo y mantenimiento de API escalable para aplicación de firma de contratos.\\n- Uso de Java Spring Boot para arquitectura de microservicios, mejorando la eficiencia de los servicios móviles.\\n- Optimización de código, mejorando tiempos de respuesta en un 80%.\\n- Participación en equipos ágiles (Scrum y Kanban) y colaboración en equipo DevOps.\\n- Desarrollo del módulo de seguridad en aplicación móvil con **Android Studio**.\\n- Migración de sistemas de Java 8 a Java 12, reduciendo costos de mantenimiento.\\n- Implementación de **CI/CD** con Jenkins y pruebas automatizadas con SonarQube.\\n- Configuración de JNDI en Websphere.\\n- Control de versiones con **GIT** y **SVN**.\\n\\n## Education\\n### Ingeniería en Tecnologías de la Información y Comunicación\\nUniversidad Tecnológica de Cancún (9/2014 - 8/2018)\\n\\n## Projects (Optional)\\n- **Proyecto de Firma Digital**: Desarrollo de una API escalable con **Java** para la firma digital de contratos en una plataforma móvil.\\n- **Migración a Java 12**: Proyecto de migración de sistemas de Java 8 a Java 12, con beneficios en flexibilidad y costos.\\n\\n",
-         "tips": [
-         "Utiliza palabras clave en las secciones de experiencia y habilidades para mejorar la visibilidad en sistemas ATS.",
-         "Usa negritas para resaltar títulos de puestos y habilidades clave.",
-         "Mantén las descripciones concisas para una lectura rápida y eficaz.",
-         "Divide sutilmente las secciones para mantener el diseño limpio y organizado."
-         ],
-         "ats_score": 90
-         }"""
       
       print("create resume: ")
       print(model_response)
@@ -151,8 +157,20 @@ async def create_resume(profile: dict, keywords: dict, job_description_lang: str
 async def pre_process_resume(profile: dict, keywords: dict, rules: dict, job_description_lang:str, plan) -> str:
 
    # VARIABLES
-   role_system = f"{rules["system"]}. STRICT LANGUAGE OUTPUT:{job_description_lang}. STRICT RESPONSE RULES:{','.join(f'{r}' for r in rules["document_format"]["formats"])}"
-   role_user = f"{rules["task"]} {','.join(f'{r}' for r in rules["rules"])}. Here are the JD keywords:[{','.join(f"{r["keyword"]}" for r in keywords)}] Here's the profile data:{str(profile)}"
+   role_system = f"""{rules["system"]}
+   
+   STRICT OUTPUT RULES:
+   - Language in {job_description_lang}
+   - Output a VALID JSON string without break lines nor extra spaces"""
+
+   role_user = f"""{rules["task"]}.
+
+   RULES:
+   {'\n'.join(f'  - {r}' for r in rules["rules"])}
+   
+   Job description keywords: {','.join(f"{r["keyword"]}" for r in keywords)}
+
+   Here's the JSON profile data: {str(profile)}"""
    continue_process = True
 
    # Call OpenAI API
@@ -171,18 +189,15 @@ async def pre_process_resume(profile: dict, keywords: dict, rules: dict, job_des
 
       #print("preprocess: \n"+role_system+"\n\n"+role_user)
       completion = client.chat.completions.create(
-      model=model_gpt,
-      messages=[
-         {"role": "system", "content": role_system},
-         {"role": "user", "content": role_user}
-      ],
+         model=model_gpt,
+         messages=[
+            {"role": "system", "content": role_system},
+            {"role": "user", "content": role_user}],
          max_tokens=1000,
       )
       
       # Get the response and print it
       model_response = completion.choices[0].message.content
-
-      #model_response = """{"something":"asdasd"}"""
 
       print("pre process model: ")
       print(model_response)
@@ -192,27 +207,13 @@ async def pre_process_resume(profile: dict, keywords: dict, rules: dict, job_des
 
 
 
-async def calculate_ats_score(markdown_resume: str, keywords: dict, rules: dict, plan) -> str:
+async def calculate_ats_score(markdown_resume: str, keywords: dict, rules: dict, plan) -> dict:
 
    # VARIABLES
-   #role_system = f"{rules["system"]}. STRICT RESPONSE RULES:{','.join(f'{r}' for r in rules["document_format"]["formats"])}. Output example: {rules["document_format"]["example"]}"
-   #role_user = f"{rules["task"]}: {','.join(f'{r}' for r in rules["rules"])}. Here are the JD keywords:[{','.join(f"{r["keyword"]}" for r in keywords)}] Here's the resume in markdown format:[{markdown_resume}]"
-   role_system = """"You are a strict ATS scanner for Fortune 500 companies. Analyze the resume markdown and:
-                  1.**Keyword Validation**:
-                     - Only count keywords in `Experience`/`Projects` as FULL matches (2 pts).
-                     - Keywords in `Skills`/`Education` count as HALF matches (1 pt).
-                     - Ignore keywords in headers/footers.
-                  2.**Context Rules**:
-                     - Flag "isolated keywords" (no supporting context). Example:
-                     - GOOD: "Optimized [Spring Boot] microservices (reduced latency by 30%)".
-                     - BAD: "Skills: Spring Boot".
-                  4.**Tips to improve**:
-                     - Give your BEST tips to improve this resume.
-                  5.**STRICTLY output a VALID JSON format without breaklines**: {"keyword_analysis":{"full_matches": [{"keyword": "Java", "section": "experience", "context": "Built [Java] services"}],"half_matches": [{"keyword": "AWS", "section": "skills"}],"missing_keywords": ["Hibernate"],"isolated_keywords": ["Python"]  # No context in experience},"structure_analysis": {"missing_sections": ["projects"],"section_order": ["work", "skills", "education"],"has_tables_graphics": false},"readability_analysis": {"long_bullets": 2,"action_verb_compliance": 0.85,"keyword_positioning": {"critical_keywords_in_first_third": ["Java"],"missing_in_first_third": ["Python"]}}, tips:["tip1","tip2"]}"""
+   role_system = f"{rules["system"]}"
 
-   role_user = f"""Analyze this resume in markdown format against the job description keywords with STRICT ATS rules:
-                  1. **Job Description Keywords**: {','.join(f"{r["keyword"]}" for r in keywords)}
-                  2. **Resume Markdown**: {markdown_resume}"""
+   role_user = f"""Job Description Keywords: {','.join(f"{r["keyword"]}" for r in keywords)}
+   Resume in Markdown: {markdown_resume}"""
    continue_process = True
 
    # Call OpenAI API
@@ -228,24 +229,79 @@ async def calculate_ats_score(markdown_resume: str, keywords: dict, rules: dict,
          case _:
             model_gpt = settings.app_free_model
 
-
-      print("calculate ats: \n"+role_system+"\n\n"+role_user+"\n\n")
       completion = client.chat.completions.create(
       model=model_gpt,
       messages=[
          {"role": "system", "content": role_system},
-         {"role": "user", "content": role_user}
-      ],
-         max_tokens=1000,
+         {"role": "user", "content": role_user}],
+      max_tokens=1000,
+      tools=ats_score_schema(rules),
+      tool_choice={"type": "function", "function": {"name": "ats_score"}},
       )
-      
-      # Get the response and print it
-      model_response = completion.choices[0].message.content
 
-      #model_response = """{"something":"asdasd"}"""
+      # Extract the JSON arguments from the function call
+      model_response = completion.choices[0].message.tool_calls
+      json_response = {}
+      if model_response:
+         json_response = json.loads(
+            model_response[0].function.arguments
+         )
       
       print("ats score: ")
-      print(model_response)
-      return model_response
+      print(model_response[0].function.arguments)
+      return json_response
+   else:
+      return ""
+   
+
+
+async def recalculate_ats_score(markdown_resume: str, prev_analysis: str, keywords: dict, rules: dict, plan) -> dict:
+
+   # VARIABLES
+   role_system = f"""{rules["system"]}.
+   *IMPORTANT RULE*
+      - ONLY ANALYZE BASED ON YOUR PREVIOUS ANALYSIS
+      - ADD KEYWORDS MATCHED IN THE RESUME INTO YOUR ANALYSIS
+      
+   PREVIOUS ANALYSIS: {prev_analysis}"""
+
+   role_user = f"""Job Description Keywords: {','.join(f"{r["keyword"]}" for r in keywords)}
+   Resume in Markdown: {markdown_resume}"""
+   continue_process = True
+
+   # Call OpenAI API
+   if(continue_process):
+      model_gpt = settings.app_free_model
+      match plan:
+         case "free":
+            model_gpt = settings.app_free_model
+         case "pro":
+            model_gpt = settings.app_pro_model
+         case "business":
+            model_gpt = settings.app_business_model
+         case _:
+            model_gpt = settings.app_free_model
+
+      completion = client.chat.completions.create(
+      model=model_gpt,
+      messages=[
+         {"role": "system", "content": role_system},
+         {"role": "user", "content": role_user}],
+      max_tokens=1000,
+      tools=ats_score_schema(rules),
+      tool_choice={"type": "function", "function": {"name": "ats_score"}},
+      )
+
+      # Extract the JSON arguments from the function call
+      model_response = completion.choices[0].message.tool_calls
+      json_response = {}
+      if model_response:
+         json_response = json.loads(
+            model_response[0].function.arguments
+         )
+      
+      print("ats score: ")
+      print(model_response[0].function.arguments)
+      return json_response
    else:
       return ""

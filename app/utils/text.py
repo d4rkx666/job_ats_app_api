@@ -16,19 +16,15 @@ def clean_text(text):
 
 def to_json(json_str: str) -> dict:
     try:
-        json_str = json_str.replace("|", "\\|")
-        json_str = json_str.replace("\n", "")
-        
-        print("\n parsing: "+json_str)
         return json.loads(json_str)
     
     except Exception as e:
-        print(f"Error parsing JSON: {e}")
+        print(f"Error parsing JSON: {e}\n{json_str}")
         return {}
     
 
 
-def process_ats_score(ats_data: dict, keywords: list) -> dict:
+def process_ats_score(ats_data: dict, keywords: dict) -> dict:
     try:
         # Keyword Score (50%)
         full_matches = ats_data["keyword_analysis"]["full_matches"]
@@ -41,8 +37,15 @@ def process_ats_score(ats_data: dict, keywords: list) -> dict:
 
         for item in keywords:
             kw = item["keyword"]
-            item["matched"] = kw in full_match_kws or kw in half_matches
-            item["half"] = (not item["matched"]) and (kw in half_match_kws)
+            item["matched"] = (kw in full_match_kws) or (kw in half_match_kws)
+            item["half"] = kw in half_match_kws
+
+        print("full matches are:")
+        print(full_match_kws)
+        print("half matches are:")
+        print(half_match_kws)
+        print("final kw dict is: ")
+        print(keywords)
         
         keyword_score = min(
             max(

@@ -4,6 +4,7 @@ from app.services.firebase_service import db
 from app.core.config import settings
 import uuid
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 async def getUserData(user_id: str):
    try:
@@ -112,7 +113,7 @@ async def update_keywords_draft(user_ref: dict, creations: dict, idDraft: str, k
    
 
    
-async def update_creation(user_ref: dict, resume: str, ats:dict, keywords: list, creations: dict, idDraft: str):
+async def update_creation(user_ref: dict, resume: str, ats_analysis: dict, ats:dict, keywords: list, creations: dict, idDraft: str):
 
    try:
       success = True
@@ -123,6 +124,8 @@ async def update_creation(user_ref: dict, resume: str, ats:dict, keywords: list,
          creations[creation_index]["resume"] = resume
          creations[creation_index]["keywords"] = keywords
          creations[creation_index]["ats"] = ats
+         creations[creation_index]["ats_analysis"] = ats_analysis
+         
 
          # Push the update to Firestore
          user_ref.update({"creations": creations})
@@ -168,6 +171,7 @@ async def deduct_credits(user_id: str, action: str) -> bool:
          "keyword_optimizations": settings.app_keyword_optimization_cost,
          "resume_optimizations": settings.app_resume_optimization_cost,
          "resume_creations": settings.app_resume_creation_cost,
+         "resume_ats_analyzation": settings.app_resume_ats_analyzation,
       }
 
       current_credits = 0
@@ -190,3 +194,23 @@ async def deduct_credits(user_id: str, action: str) -> bool:
       return process(db.transaction())
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
+
+
+def reset_monthly_credits():
+   users_ref = db.collection("users")
+   
+   for user in users_ref.stream():
+      user_data = user.to_dict()
+      next_reset = user_data.get("usage", {}).get("next_reset")
+      
+      # Reset if next_reset is past or doesn't exist
+      if not next_reset or datetime.now() > next_reset:
+         plan = user_data.get("subscription", {}).get("plan", "free")
+         new_credits = settings.app_free_initial_credits if plan == "free" else settings.app_pro_reset_credits if plan == "pro" else 0
+         
+         # Update user with reset credits
+         user.reference.update({
+               "usage.current_credits": new_credits,
+               "usage.last_reset": datetime.now(),
+               "usage.next_reset": datetime.now() + relativedelta(month=1)
+         })
