@@ -1,63 +1,47 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
-from fastapi.responses import JSONResponse
 from app.core.security import get_current_user
 from app.models.schemas import ExportPDFRequest, ExportDOCXRequest
-from app.core.config import settings
 from app.services.user_actions_manager import getUserData
-import pdfkit
 import base64
 import os
 from htmldocx import HtmlToDocx
 from docx import Document
-from tempfile import NamedTemporaryFile
 import io
+from io import BytesIO
+from xhtml2pdf import pisa
+
 
 router = APIRouter()
 
 @router.post("/export-pdf")
 async def export_pdf(request: ExportPDFRequest ,user: dict = Depends(get_current_user)):
 
-   # Configure default PDF options
-   default_options = {
-      'page-size': 'A4',
-      'margin-top': '0.5in',
-      'margin-right': '0.5in',
-      'margin-bottom': '0.5in',
-      'margin-left': '0.5in',
-      'encoding': 'UTF-8',
-      'quiet': '',
-      'enable-local-file-access': None,  # Required for wkhtmltopdf >= 0.12.6
-      'no-outline': None,
-      'disable-smart-shrinking': None,
-      'print-media-type': None,
-      'dpi': 300,
-      'zoom': 1.0,
-      'user-style-sheet': os.path.join(os.path.dirname(__file__), 'styles.css'),
+   response ={
+      "success": True,
+      "pdf": "",
+      "type_error": ""
    }
-   
+
    try:
-      # Create a temporary HTML file to ensure all assets are properly handled
-      with NamedTemporaryFile(suffix='.html', delete=False, mode='w+', encoding='utf-8') as html_file:
-         html_file.write(request.html)
-         html_file_path = html_file.name
+      # Create PDF in memory
+      pdf_buffer = BytesIO()
       
-      # Configure pdfkit path (adjust based on your server setup)
-      config = pdfkit.configuration(wkhtmltopdf=settings.wkhtmltopdf_path)
-      
-      # Generate PDF
-      pdf_bytes = pdfkit.from_file(
-         html_file_path,
-         False,  # Don't output to file
-         options=default_options,
-         configuration=config
+      # Convert HTML to PDF
+      pisa_status = pisa.CreatePDF(
+         src=request.html,
+         dest=pdf_buffer,
+         encoding='UTF-8',
       )
       
-      # Clean up temporary file
-      try:
-         os.unlink(html_file_path)
-      except:
-         pass
+      if pisa_status.err:
+         print(pisa_status.err)
+         response["success"] = False
+         response["type_error"] = "pdf_generation_failed"
+         return response
       
+      pdf_bytes = pdf_buffer.getvalue()
+      pdf_buffer.close()
+
       return {
          "success": True,
          "pdf": base64.b64encode(pdf_bytes).decode('utf-8'),
@@ -65,17 +49,11 @@ async def export_pdf(request: ExportPDFRequest ,user: dict = Depends(get_current
       }
 
    except Exception as e:
-      # Clean up temporary file if it exists
-      if 'html_file_path' in locals():
-         try:
-               os.unlink(html_file_path)
-         except:
-               pass
-      raise HTTPException(status_code=500, detail=str(e))
+      print(e)
+      response["success"] = False
+      response["type_error"] = "pdf_generation_failed"
+      return response
 
-   except Exception as e:
-         raise HTTPException(status_code=500, detail=str(e))
-   
 
 @router.post("/export-docx")
 async def export_docx(request: ExportDOCXRequest ,user: dict = Depends(get_current_user)):
@@ -113,13 +91,13 @@ async def export_docx(request: ExportDOCXRequest ,user: dict = Depends(get_curre
    
       else:
           return{
-              "error": True,
+              "success": False,
               "type": "user_not_pro_plan"
           }
       
    except Exception as e:
       print(f"DOCX generation failed: {str(e)}")  # Server-side logging
-      raise HTTPException(
-         status_code=500,
-         detail=f"DOCX generation failed: {str(e)}"
-      )
+      return{
+         "success": False,
+         "type": "docx_generation_failed"
+      }
