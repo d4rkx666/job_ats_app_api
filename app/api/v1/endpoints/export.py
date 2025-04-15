@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from app.core.security import get_current_user
 from app.models.schemas import ExportPDFRequest, ExportDOCXRequest
 from app.services.user_actions_manager import getUserData
 import base64
-import os
 from htmldocx import HtmlToDocx
 from docx import Document
 import io
@@ -14,45 +13,42 @@ from xhtml2pdf import pisa
 router = APIRouter()
 
 @router.post("/export-pdf")
-async def export_pdf(request: ExportPDFRequest ,user: dict = Depends(get_current_user)):
+async def export_pdf(request: ExportPDFRequest, user: dict = Depends(get_current_user)):
+    response = {
+        "success": True,
+        "pdf": "",
+        "type_error": ""
+    }
 
-   response ={
-      "success": True,
-      "pdf": "",
-      "type_error": ""
-   }
+    try:
+        pdf_buffer = BytesIO()
 
-   try:
-      # Create PDF in memory
-      pdf_buffer = BytesIO()
-      
-      # Convert HTML to PDF
-      pisa_status = pisa.CreatePDF(
-         src=request.html,
-         dest=pdf_buffer,
-         encoding='UTF-8',
-      )
-      
-      if pisa_status.err:
-         print(pisa_status.err)
-         response["success"] = False
-         response["type_error"] = "pdf_generation_failed"
-         return response
-      
-      pdf_bytes = pdf_buffer.getvalue()
-      pdf_buffer.close()
+        # Generate PDF with most basic settings
+        pisa_status = pisa.CreatePDF(
+            src=request.html,
+            dest=pdf_buffer,
+            encoding='UTF-8',
+            # Remove all problematic parameters
+        )
 
-      return {
-         "success": True,
-         "pdf": base64.b64encode(pdf_bytes).decode('utf-8'),
-         "type_error": ""
-      }
+        if pisa_status.err:
+            print(f"PDF error: {pisa_status.err}")
+            response.update({"success": False, "type_error": "pdf_generation_failed"})
+            return response
 
-   except Exception as e:
-      print(e)
-      response["success"] = False
-      response["type_error"] = "pdf_generation_failed"
-      return response
+        pdf_bytes = pdf_buffer.getvalue()
+        pdf_buffer.close()
+
+        return {
+            "success": True,
+            "pdf": base64.b64encode(pdf_bytes).decode('utf-8'),
+            "type_error": ""
+        }
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        response.update({"success": False, "type_error": "pdf_generation_failed"})
+        return response
 
 
 @router.post("/export-docx")
