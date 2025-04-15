@@ -19,9 +19,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Environment variables for headless operation
+# Set environment variables
 ENV DISPLAY=:99 \
-    QT_QPA_PLATFORM=offscreen
+    QT_QPA_PLATFORM=offscreen \
+    PORT=8000
 
-# Start Xvfb and Uvicorn with your settings
-CMD ["sh", "-c", "Xvfb :99 -screen 0 1024x768x24 & uvicorn app.main:app --host ${HOST:-0.0.0.0} --port ${PORT:-8000}"]
+# Create start script
+RUN echo '#!/bin/sh\n\
+Xvfb :99 -screen 0 1024x768x24 &\n\
+exec uvicorn app.main:app --host 0.0.0.0 --port $PORT' > /start.sh && \
+    chmod +x /start.sh
+
+# Railway specifically looks for this command:
+CMD ["/start.sh"]
