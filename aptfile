@@ -5,3 +5,5 @@ libjpeg62-turbo
 fontconfig
 xfonts-75dpi
 xfonts-base
+python3
+python3-venv
