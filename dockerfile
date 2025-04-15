@@ -14,16 +14,14 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application
 COPY . .
 
-# Set environment variables for headless operation
+# Environment variables for headless operation
 ENV DISPLAY=:99 \
     QT_QPA_PLATFORM=offscreen
 
-# Run with Xvfb and Uvicorn
-CMD ["sh", "-c", "Xvfb :99 -screen 0 1024x768x24 && py -m app.main"]
+# Start Xvfb and Uvicorn with your settings
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1024x768x24 & uvicorn app.main:app --host ${HOST:-0.0.0.0} --port ${PORT:-8000}"]
