@@ -1,1 +1,1 @@
-web: sh -c "wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-2/wkhtmltox_0.12.6.1-2.jammy_amd64.deb && dpkg -x wkhtmltox_0.12.6.1-2.jammy_amd64.deb ./wkhtml && cp ./wkhtml/usr/local/bin/wkhtmltopdf /usr/bin/ && python -m app.main"
+web: python -m app.main 
