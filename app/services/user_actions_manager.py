@@ -168,7 +168,7 @@ async def deduct_credits(user_id: str, action: str) -> bool:
       user_ref = db.collection("users").document(user_id)
 
       # get cost vars:
-      cost = get_costs()
+      cost = await get_costs()
 
       # Define credit costs
       CREDIT_COSTS = {
