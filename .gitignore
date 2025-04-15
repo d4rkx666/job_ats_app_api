@@ -2,3 +2,4 @@
 app/firebase_sdk.json
 __pycache__/
 *.pyc
+/venv
