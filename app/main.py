@@ -5,6 +5,9 @@ from app.core.config import settings
 from apscheduler.schedulers.background import BackgroundScheduler
 from contextlib import asynccontextmanager
 from app.services.user_actions_manager import reset_monthly_credits
+import os
+
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'  # Required for PDF generation
 
 # Initialize scheduler at module level (outside FastAPI app)
 scheduler = BackgroundScheduler()
