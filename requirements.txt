@@ -14,3 +14,4 @@ pdfkit
 python-docx
 htmldocx
 apscheduler
+xhtml2pdf
