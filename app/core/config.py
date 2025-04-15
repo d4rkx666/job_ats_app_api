@@ -15,12 +15,6 @@ class Settings(BaseSettings):
    app_free_initial_credits: int
    app_pro_reset_credits: int
 
-   # Costs
-   app_keyword_optimization_cost: int
-   app_resume_optimization_cost: int
-   app_resume_creation_cost: int
-   app_resume_ats_analyzation: int
-
    # Models
    app_free_model: str
    app_pro_model: str
