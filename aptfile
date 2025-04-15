@@ -1,8 +1,0 @@
-wkhtmltopdf=0.12.6.1-2
-libxrender1
-libjpeg62-turbo
-fontconfig
-xfonts-75dpi
-xfonts-base
-fonts-noto
-fonts-liberation
