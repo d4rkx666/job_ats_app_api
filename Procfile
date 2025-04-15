@@ -1,1 +1,1 @@
-web: python -m app.main
+web: /opt/venv/bin/python -m app.main
