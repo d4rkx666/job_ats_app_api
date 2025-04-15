@@ -1,0 +1,7 @@
+wkhtmltopdf
+xvfb
+libxrender1
+libjpeg62-turbo
+fontconfig
+xfonts-75dpi
+xfonts-base
