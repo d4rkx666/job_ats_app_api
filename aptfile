@@ -1,9 +1,8 @@
-wkhtmltopdf
-xvfb
+wkhtmltopdf=0.12.6.1-2
 libxrender1
 libjpeg62-turbo
 fontconfig
 xfonts-75dpi
 xfonts-base
-python3
-python3-venv
+fonts-noto
+fonts-liberation

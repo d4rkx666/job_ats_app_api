@@ -1,1 +1,1 @@
-web: python -m app.main
+web: sh -c "apt-get update && apt-get install -y wkhtmltopdf && python -m app.main"
