@@ -4,26 +4,32 @@ from app.api.v1.endpoints import resume,auth,feedback, profile, export
 from app.core.config import settings
 from apscheduler.schedulers.background import BackgroundScheduler
 from contextlib import asynccontextmanager
-from app.services.user_actions_manager import reset_monthly_credits
+from app.services.user_actions_manager import reset_monthly_credits_and_plans
 
 # Initialize scheduler at module level (outside FastAPI app)
 scheduler = BackgroundScheduler()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    scheduler.add_job(
-        reset_monthly_credits,
-        'cron',
-        hour=0,
-        minute=1,
-        timezone='UTC'
-    )
-    scheduler.start()
-    
-    yield
-    
-    # Shutdown
-    scheduler.shutdown()
+    if(settings.app_env_prod):
+        # Startup
+        scheduler.add_job(
+            reset_monthly_credits_and_plans,
+            'cron',
+            hour=0,
+            minute=1,
+            timezone='UTC'
+        )
+        scheduler.start()
+        
+        yield
+        
+        # Shutdown
+        scheduler.shutdown()
+    else:
+        yield
+        
+        # Shutdown
+        scheduler.shutdown()
 
 # Initialize FastAPI app
 app = FastAPI(

@@ -1,5 +1,6 @@
 import re
 import json
+from datetime import datetime
 
 def clean_text(text):
    # Remove extra spaces (including tabs and multiple spaces)
@@ -106,3 +107,16 @@ def process_ats_score(ats_data: dict, keywords: dict) -> dict:
     except Exception as e:
         print(e)
         return {}
+
+
+def firestore_to_datetime(fs_date):
+    if not fs_date:
+        return None
+    # If it's already a datetime (or compatible), return as-is
+    if isinstance(fs_date, datetime):
+        return fs_date
+    # Handle DatetimeWithNanoseconds (access attributes directly)
+    return datetime(
+        fs_date.year, fs_date.month, fs_date.day,
+        fs_date.hour, fs_date.minute, fs_date.second
+    )
