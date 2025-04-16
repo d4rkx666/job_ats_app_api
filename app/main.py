@@ -10,20 +10,26 @@ from app.services.user_actions_manager import reset_monthly_credits_and_plans
 scheduler = BackgroundScheduler()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    scheduler.add_job(
-        reset_monthly_credits_and_plans,
-        'cron',
-        hour=0,
-        minute=1,
-        timezone='UTC'
-    )
-    scheduler.start()
-    
-    yield
-    
-    # Shutdown
-    scheduler.shutdown()
+    if(settings.app_env_prod):
+        # Startup
+        scheduler.add_job(
+            reset_monthly_credits_and_plans,
+            'cron',
+            hour=0,
+            minute=1,
+            timezone='UTC'
+        )
+        scheduler.start()
+        
+        yield
+        
+        # Shutdown
+        scheduler.shutdown()
+    else:
+        yield
+        
+        # Shutdown
+        scheduler.shutdown()
 
 # Initialize FastAPI app
 app = FastAPI(

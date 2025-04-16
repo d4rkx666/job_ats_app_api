@@ -15,6 +15,9 @@ class Settings(BaseSettings):
    app_free_initial_credits: int
    app_pro_reset_credits: int
 
+   # For cron
+   app_env_prod: bool
+
    # Models
    app_free_model: str
    app_pro_model: str
