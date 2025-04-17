@@ -34,6 +34,47 @@ def extract_keywords_schema(rules: dict) -> dict:
     return tools
 
 
+def optimize_resume_schema(rules: dict) -> dict:
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "optimize_resume",
+            "description": f"""{rules["task"]}.
+            RULES:
+            {'\n'.join(f'  - {r}' for r in rules["rules"])}""",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "improvements":{
+                        "type":"array",
+                        "items":{
+                            "type":"object",
+                            "properties":{
+                                "category":{"type":"string"},
+                                "suggestions":{
+                                    "type":"array",
+                                    "items":{
+                                        "type":"object",
+                                        "properties":{
+                                            "suggestion": {"type":"string"},
+                                            "advice":{"type":"string"}
+                                        },
+                                        "required":["suggestion","advice"]
+                                    }
+                                }
+                            },
+                            "required":["category", "suggestions"]
+                        }
+                    }
+                },
+                "required": ["improvements"],
+            },
+        },
+    }
+    ]
+    return tools
+
+
 
 def ats_score_schema(rules: dict) -> dict:
     tools = [{

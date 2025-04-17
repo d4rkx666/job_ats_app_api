@@ -11,9 +11,20 @@ async def get_templates():
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
    
+
 async def get_keywords_rules():
    try:
       rules_db = db.collection("chatgpt_prompt").document("keywords")
+      rules = rules_db.get().to_dict()
+
+      return rules
+   except Exception as e:
+      raise HTTPException(status_code=500, detail=str(e))
+
+
+async def get_improvements_rules():
+   try:
+      rules_db = db.collection("chatgpt_prompt").document("improvements")
       rules = rules_db.get().to_dict()
 
       return rules
