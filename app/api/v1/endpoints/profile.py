@@ -26,12 +26,14 @@ async def update_personal_information_endpoint(profile_request: ProfilePersonalI
       })
 
       return {
-         "status": "success",
-         "type": "update_personal_information",
-         "message": "Personal information updated successfully",
+         "success": True,
+         "type_error": "",
       }
    except Exception as e:
-         raise HTTPException(status_code=500, detail=str(e))
+      return {
+         "success": False,
+         "type_error": "not_saved",
+      }
 
 
 
@@ -47,12 +49,14 @@ async def update_personal_information_endpoint(profile_request: ProfileSkillsReq
       })
 
       return {
-         "status": "success",
-         "type": "update_skills",
-         "message": "Skills information updated successfully",
+         "success": True,
+         "type_error": "",
       }
    except Exception as e:
-         raise HTTPException(status_code=500, detail=str(e))
+      return {
+         "success": False,
+         "type_error": "not_saved",
+      }
 
 
 @router.post("/update-profile")
@@ -74,12 +78,14 @@ async def update_profile_endpoint(profile_request: ProfileRequest,user: dict = D
       },merge=True)
 
       return {
-         "status": "success",
-         "type": "update_profile",
-         "message": "Profile updated successfully",
+         "success": True,
+         "type_error": "",
       }
    except Exception as e:
-         raise HTTPException(status_code=500, detail=str(e))
+      return {
+         "success": False,
+         "type_error": "not_saved",
+      }
    
 
 # Convert Pydantic models to dictionaries
