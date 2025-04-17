@@ -21,6 +21,7 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
    # Response INIT
    response = {
       "optimized_resume": "",
+      "job_title": job_title,
       "success": True,
       "type_error": ""
    }
