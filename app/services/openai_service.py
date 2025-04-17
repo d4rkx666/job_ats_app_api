@@ -2,27 +2,20 @@ from openai import OpenAI
 import json
 from app.core.config import settings
 from app.utils.text import clean_text
-from app.services.chat_gpt_schema.api_schema import extract_keywords_schema, ats_score_schema
+from app.services.chat_gpt_schema.api_schema import extract_keywords_schema, ats_score_schema, optimize_resume_schema
 
 client = OpenAI(api_key = settings.openai_api_key)
 
-async def optimize_resume(resume_text: str, job_title, job_description, lang, plan) -> str:
+async def optimize_resume(resume_text: str, job_title: str, job_description: str, rules: dict, plan) -> str:
 
    # VARIABLES
-   role_system = ""
-   role_user = f""
-   continue_process = True
+   role_system = f"{rules["system"]}"
+   role_user = f"""Job title: {job_title}
 
-   # Lang
-   match lang:
-      case settings.app_lang_en:
-         role_system = settings.app_ai_c1_role_system_en
-         role_user = f"{settings.app_ai_c1_role_user_en} resume:{resume_text} job:{job_title} {job_description}."
-      case settings.app_lang_es:
-         role_system = settings.app_ai_c1_role_system_es
-         role_user = f"{settings.app_ai_c1_role_user_es} CV:{resume_text} puesto:{job_title} {job_description}."
-      case _:
-         continue_process = False
+   Job Description: {job_description}
+
+   Resume: {resume_text}"""
+   continue_process = True
 
    # Call OpenAI API
    if(continue_process):
@@ -40,18 +33,27 @@ async def optimize_resume(resume_text: str, job_title, job_description, lang, pl
 
 
       completion = client.chat.completions.create(
-      model=model_gpt,
-      messages=[
-         {"role": "system", "content": role_system},
-         {"role": "user", "content": role_user}
-      ],
-         max_tokens=800
+         model=model_gpt,
+         messages=[
+            {"role": "system", "content": role_system},
+            {"role": "user", "content": role_user}],
+         max_tokens=1000,
+         tools=optimize_resume_schema(rules),
+         tool_choice={"type": "function", "function": {"name": "optimize_resume"}},
       )
       
       # Get the response and print it
-      model_response = completion.choices[0].message.content
+      model_response = completion.choices[0].message.tool_calls
+      json_response = {}
+      if model_response:
+         json_response = json.loads(
+            model_response[0].function.arguments
+         )
 
-      return model_response
+      print("optimization:")
+      print(json_response)
+
+      return json_response
    else:
       return ""
 

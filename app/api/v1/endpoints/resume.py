@@ -3,11 +3,12 @@ from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationReque
 from app.services.openai_service import optimize_resume, create_resume, extract_keywords_ai, calculate_ats_score, recalculate_ats_score
 from app.core.security import get_current_user
 from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_keywords_draft, deduct_credits,update_creation, update_resume
-from app.services.rules_management import get_templates, get_keywords_rules
+from app.services.rules_management import get_templates, get_keywords_rules, get_improvements_rules
 from app.services.log_saver import setChatGptError
 from PyPDF2 import PdfReader
 from app.utils.text import clean_text, process_ats_score
 import io
+import json
 
 router = APIRouter()
 
@@ -62,12 +63,16 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
          # Clean job description
          job_description = clean_text(job_description)
 
+         # Get rules
+         manageRules= await get_improvements_rules()
 
          #Get optimized suggestions
-         response["optimized_resume"] = await optimize_resume(resume_text, job_title, job_description, lang, validate_user_data["currentPlan"])
+         json_improvements = await optimize_resume(resume_text, job_title, job_description, manageRules, validate_user_data["currentPlan"])
+
+         response["optimized_resume"] = json.dumps(json_improvements.get("improvements",{}))
 
          # Add suggestions to firebase
-         await add_improvement(validate_user_data["user_ref"], job_title, job_description, response["optimized_resume"])
+         await add_improvement(validate_user_data["user_ref"], job_title, job_description, json_improvements.get("improvements",{}))
 
          return response
       else: 
@@ -78,7 +83,7 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
 
       
    except Exception as e:
-         raise HTTPException(status_code=500, detail=str(e))
+      print(e)
    
 
 @router.post("/extract-keywords")

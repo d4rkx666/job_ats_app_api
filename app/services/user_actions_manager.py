@@ -33,7 +33,7 @@ async def getUserData(user_id: str):
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
 
-async def add_improvement(user_ref: dict, job_title: str, job_description: str, new_improvement: str):
+async def add_improvement(user_ref: dict, job_title: str, job_description: str, new_improvement: dict):
    try:
 
       #Create dict to add
@@ -41,7 +41,7 @@ async def add_improvement(user_ref: dict, job_title: str, job_description: str, 
          "id": str(uuid.uuid4()),
          "job_title": job_title,
          "job_description": job_description,
-         "ai_improvements": new_improvement,
+         "improvements_list": new_improvement,
          "current_version": "free",
          "createdAt": datetime.now(),
          "status": "completed"
@@ -50,7 +50,6 @@ async def add_improvement(user_ref: dict, job_title: str, job_description: str, 
       # Add the new improvement to the array
       user_ref.update({
          "improvements": firestore.ArrayUnion([inserting_data]),
-         "settings.resumeImprovements": firestore.Increment(1),
       })
 
       return {
