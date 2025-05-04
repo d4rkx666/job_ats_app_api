@@ -39,6 +39,9 @@ class Settings(BaseSettings):
    # Firebase settings
    firebase_credentials: str
 
+   # Stripe keys
+   stripe_secret_key: str
+
    class Config:
       env_file = ".env"
 
