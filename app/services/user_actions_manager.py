@@ -277,7 +277,7 @@ async def set_subscription(customer_stripe_id: str, isPro: bool):
          subscription = "pro"
 
       users_ref = db.collection('user')
-      query = users_ref.where('subscription.stripe_id', '==', customer_stripe_id)
+      query = users_ref.where(field_path='subscription.stripe_id', op_string='==', value=customer_stripe_id)
 
       doc = query.stream()
 
