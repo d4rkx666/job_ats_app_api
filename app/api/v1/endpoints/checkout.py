@@ -73,7 +73,7 @@ async def handle_webhook(request: Request):
    
    try:
       event = stripe.Webhook.construct_event(
-         payload, sig_header, settings.stripe_secret_key
+         payload, sig_header, settings.stripe_signing_secret_key
       )
    except ValueError as e:
       raise HTTPException(status_code=400, detail=str(e))
