@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from firebase_admin import firestore
+from google.cloud.firestore_v1 import FieldFilter
 from app.services.firebase_service import db
 from app.core.config import settings
 from app.services.db_variables import get_costs
@@ -276,16 +277,16 @@ async def set_subscription(customer_stripe_id: str, isPro: bool):
       if isPro:
          subscription = "pro"
 
-      users_ref = db.collection('user')
-      query = users_ref.where(field_path='subscription.stripe_id', op_string='==', value=customer_stripe_id)
+      users_ref = db.collection('users')
+      query = users_ref.where(filter=FieldFilter('subscription.stripe_id', '==', customer_stripe_id))
 
       doc = query.stream()
 
       # Find user
       user_ref = None
       for d in doc:
-         user_ref = db.collection('user').document(d.id)
-         break  # Only get the first result
+         user_ref = db.collection('users').document(d.id)
+         break 
 
       #Create dict to add
       inserting_data = {
@@ -298,10 +299,10 @@ async def set_subscription(customer_stripe_id: str, isPro: bool):
 
       # Add a new subscription
       if user_ref:
-         user_ref.update({
+         user_ref.set({
             "subscription": inserting_data
          }, merge = True)
-
+         
       return {
          "status": "success",
          "method": "add_improvement",
