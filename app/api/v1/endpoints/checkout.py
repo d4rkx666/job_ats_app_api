@@ -94,6 +94,8 @@ async def handle_webhook(request: Request):
          customer = stripe.Customer.retrieve(customer_id)
          email = customer.email 
 
+         print(email)
+
          await set_subscription(email, True)  # Custom function to handle subscription status
       except stripe.error.StripeError as e:
          print(f"Error retrieving customer: {e}")
