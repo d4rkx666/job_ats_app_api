@@ -271,14 +271,14 @@ async def update_user_stripe(user_ref: dict, customer_stripe_id: str):
       raise HTTPException(status_code=501, detail=str(e))
    
 
-async def set_subscription(customer_stripe_id: str, isPro: bool):
+async def set_subscription(email: str, isPro: bool):
    try:
       subscription = "free"
       if isPro:
          subscription = "pro"
 
       users_ref = db.collection('users')
-      query = users_ref.where(filter=FieldFilter('subscription.stripe_id', '==', customer_stripe_id))
+      query = users_ref.where(filter=FieldFilter('email', '==', email))
 
       doc = query.stream()
 
