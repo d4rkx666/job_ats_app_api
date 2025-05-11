@@ -35,7 +35,7 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
                'price': 'price_1RNK4a4EcbVoOhTGDZ4zPYHT',
                'quantity': 1,
          }],
-         mode='subscription',¿
+         mode='subscription',
          customer=customer.id,
          success_url=settings.stripe_success_endpoint,
          cancel_url=settings.stripe_cancel_endpoint,
