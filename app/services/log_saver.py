@@ -24,21 +24,21 @@ async def setChatGptError(type_error: str, data: str, user_id: str):
       raise HTTPException(status_code=500, detail=str(e))
    
 
-async def setError(message: str):
+"""async def setError(exception: Exception):
    try:
-      error_ref = db.collection("errors").document("error")
+      error_ref = db.collection("errors").document("chatgpt")
 
       #Create dict to add
       inserting_data = {
          "type_error": "runtime",
-         "exception": message,
+         "exception": exception,
          "createdAt": datetime.now(),
       }
 
       # Add the new improvement to the array
       error_ref.update({
-         "general_error": firestore.ArrayUnion([inserting_data]),
+         user_id: firestore.ArrayUnion([inserting_data]),
       })
       
    except Exception as e:
-      print(e)
+      print(e)"""

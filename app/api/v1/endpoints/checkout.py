@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from app.core.security import get_current_user
-from app.services.log_saver import setError
 from app.services.stripe_service import stripe
 from app.services.user_actions_manager import update_user_stripe, set_subscription
 from app.core.config import settings
@@ -83,23 +82,14 @@ async def handle_webhook(request: Request):
 
    # Handle events
    if event.type == "invoice.payment_succeeded":
-      print("Invoice was created successfully")
+      print("Payment was succeeded even for trial (0 usd)")
       pass
    elif event.type == "customer.subscription.created":
       print("New subscription created")
       subscription = event.data.object
       customer_id = subscription.get("customer")
 
-      try:
-         customer = stripe.Customer.retrieve(customer_id)
-         email = customer.email 
-
-         print(email)
-
-         await set_subscription(email, True)  # Custom function to handle subscription status
-      except stripe.error.StripeError as e:
-         print(f"Error retrieving customer: {e}")
-         setError(f"Subscription didn't created. Create it manually for this customer: {customer_id}")
+      await set_subscription(customer_id, True)
       pass
    elif event.type == "customer.subscription.deleted":
       print("user canceled the subscription")
