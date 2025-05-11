@@ -44,11 +44,6 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
             },
             'trial_period_days': 7,
          },
-         payment_method_options={
-               'card': {
-                  'setup_future_usage': 'off_session',
-               }
-         },
          customer=customer.id,
          success_url=settings.stripe_success_endpoint,
          cancel_url=settings.stripe_cancel_endpoint,
