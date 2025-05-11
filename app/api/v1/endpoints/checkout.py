@@ -36,6 +36,16 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
                'quantity': 1,
          }],
          mode='subscription',
+         subscription_data={
+            'trial_settings': {
+               'end_behavior': {
+                  'missing_payment_method': 'cancel'
+               }
+            },
+            'trial_period_days': 7,
+            'payment_behavior': 'default_incomplete',
+            'setup_future_usage': 'off_session',
+         },
          customer_email=validate_user_data["email"],
          success_url=settings.stripe_success_endpoint,
          cancel_url=settings.stripe_cancel_endpoint,
@@ -80,6 +90,7 @@ async def handle_webhook(request: Request):
       subscription = event.data.object
       customer_id = subscription.get("customer")
 
+      print(f"setting subs to {customer_id}")
       await set_subscription(customer_id, True)
       pass
    elif event.type == "customer.subscription.deleted":
