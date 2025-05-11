@@ -9,60 +9,51 @@ from app.services.user_actions_manager import getUserData
 
 router = APIRouter()
 
-@router.post("/create-subscription")
-async def create_subcription(request: CreateSubscriptionRequest, user: dict = Depends(get_current_user)):
+@router.post("/create-session")
+async def create_checkout_session(user: dict = Depends(get_current_user)):
 
    # Response INIT
    response = {
       "success": True,
       "type_error": "",
-      "subscription_id": None
+      "session_id": None
    }
 
    try:
-
+      
       validate_user_data = await getUserData(user["uid"])
 
       # Create or retrieve customer
       customers = stripe.Customer.list(email=validate_user_data["email"]).data
       customer = customers[0] if customers else stripe.Customer.create(
-         email=validate_user_data["email"],
-         payment_method=request.payment_method_id,
-         invoice_settings={"default_payment_method": request.payment_method_id},
+         email=validate_user_data["email"]
       )
-      
 
-      # Create subscription with trial
-      subscription = stripe.Subscription.create(
-         customer=customer.id,
-         items=[{
-               'price': "price_1RIgfP4EcbVoOhTGHpizvb6E",
+      session = stripe.checkout.Session.create(
+         payment_method_types=['card'],
+         line_items=[{
+               'price': 'price_1RNK4a4EcbVoOhTGDZ4zPYHT',
+               'quantity': 1,
          }],
-         trial_period_days=7,
-         payment_behavior="default_incomplete",
+         mode='subscription',
+         customer_email=validate_user_data["email"],
+         success_url=settings.stripe_success_endpoint,
+         cancel_url=settings.stripe_cancel_endpoint,
       )
 
       await update_user_stripe(validate_user_data["user_ref"],customer.id)
-   
+
       response.update({
-         "subscription_id": subscription.id
+         "session_id":session.id
       })
-      return response
-   
-   except stripe.error.StripeError as e:
-      response.update({
-            "success": False,
-            "type_error": str(e)
-      })
-      return response
+
    except Exception as e:
-      print(f"Unexpected error: {e}")
       response.update({
          "success": False,
-         "type_error": "An unexpected error occurred"
+         "type_error": e
       })
+   finally:
       return response
-
 
 
 @router.post("/stripe-webhook")
@@ -82,7 +73,7 @@ async def handle_webhook(request: Request):
 
    # Handle events
    if event.type == "invoice.payment_succeeded":
-      print("Payment was succeeded even for trial (0 usd)")
+      print("New invoice created")
       pass
    elif event.type == "customer.subscription.created":
       print("New subscription created")
@@ -92,7 +83,7 @@ async def handle_webhook(request: Request):
       await set_subscription(customer_id, True)
       pass
    elif event.type == "customer.subscription.deleted":
-      print("user canceled the subscription")
+      print("User canceled the subscription")
       pass
 
    return {"status": "success"}

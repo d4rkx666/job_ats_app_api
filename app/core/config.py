@@ -39,6 +39,9 @@ class Settings(BaseSettings):
    # Stripe keys
    stripe_secret_key: str
    stripe_signing_secret_key: str
+   
+   stripe_success_endpoint: str
+   stripe_cancel_endpoint: str
 
    class Config:
       env_file = ".env"
