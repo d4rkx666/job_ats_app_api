@@ -307,6 +307,18 @@ async def set_subscription(customer_stripe_id: str, isPro: bool):
 
       # Add a new subscription
       if user_ref:
+         user_doc = user_ref.get()
+
+         if user_doc.exists:
+            current_user = user_doc.to_dict()
+            hadTrial = current_user.get("subscription", {}).get("hadTrial", False)
+
+            if not hadTrial:
+               subscription_data.update({
+                  "current_period_end": datetime.now() + relativedelta(days=7),
+               })
+
+
          user_ref.set({
             "subscription": subscription_data,
             "usage": usage_data
