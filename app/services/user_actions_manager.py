@@ -293,6 +293,7 @@ async def set_subscription(customer_stripe_id: str, isPro: bool):
          "current_period_end": datetime.now() + relativedelta(months=1),
          "payment_method": "Stripe",
          "plan": subscription,
+         "hadTrial": True,
          "status": "active",
       }
 

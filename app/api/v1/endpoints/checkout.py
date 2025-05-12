@@ -29,6 +29,13 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
          email=validate_user_data["email"]
       )
 
+      # Validate TRIAL
+      hadTrial = validate_user_data.get("hadTrial",False)
+      trialDays = settings.app_trial_days
+
+      if(hadTrial):
+         trialDays: None
+
       session = stripe.checkout.Session.create(
          payment_method_types=['card'],
          line_items=[{
@@ -36,6 +43,9 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
                'quantity': 1,
          }],
          mode='subscription',
+         subscription_data={
+            'trial_period_days': trialDays
+         },
          customer=customer.id,
          success_url=settings.stripe_success_endpoint,
          cancel_url=settings.stripe_cancel_endpoint,
