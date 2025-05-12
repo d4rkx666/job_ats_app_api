@@ -206,6 +206,9 @@ class ExportPDFRequest(BaseModel):
 class ExportDOCXRequest(BaseModel):
    html: str
 
+class CreateSubscriptionRequest(BaseModel):
+   payment_method_id: str
+
 
 
 ## RESPONSES

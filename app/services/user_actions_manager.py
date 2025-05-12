@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from firebase_admin import firestore
+from google.cloud.firestore_v1 import FieldFilter
 from app.services.firebase_service import db
 from app.core.config import settings
 from app.services.db_variables import get_costs
@@ -23,13 +24,17 @@ async def getUserData(user_id: str):
          suscription = current_user.get("subscription", {})
          profile = current_user.get("profile", {})
          creations = current_user.get("creations", [])
+         email = current_user.get("email", "")
  
          # Get plan
          currentPlan = suscription.get("plan", "free")
+
+         # Get if user had Trial
+         hadTrial = suscription.get("hadTrial", False)
       else:
          raise HTTPException(status_code=404, detail="User not found")
 
-      return {"creations": creations, "currentPlan": currentPlan, "profile": profile, "user_ref": user_ref}
+      return {"creations": creations, "currentPlan": currentPlan, "profile": profile,"email": email, "hadTrial": hadTrial, "user_ref": user_ref}
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
 
@@ -199,6 +204,7 @@ async def deduct_credits(user_id: str, action: str) -> bool:
 
 
 def reset_monthly_credits_and_plans():
+   print("reset started")
    users_ref = db.collection("users")
    
    for user in users_ref.stream():
@@ -247,3 +253,85 @@ def reset_monthly_credits_and_plans():
          })
          
          print("user reset credits:")
+
+
+
+async def update_user_stripe(user_ref: dict, customer_stripe_id: str):
+   try:
+
+      # Add the new improvement to the array
+      user_ref.update({
+         "subscription.stripe_id": customer_stripe_id,
+      })
+
+      return {
+         "status": "success",
+         "method": "update_user_stripe",
+         "type": "update_user_stripe",
+         "message": "Update successfully",
+      }
+   except Exception as e:
+      raise HTTPException(status_code=501, detail=str(e))
+   
+
+async def set_subscription(customer_stripe_id: str, isPro: bool):
+   try:
+      subscription = "free"
+      if isPro:
+         subscription = "pro"
+
+      users_ref = db.collection('users')
+      query = users_ref.where(filter=FieldFilter('subscription.stripe_id', '==', customer_stripe_id))
+
+      doc = query.stream()
+      # Find user
+      user_ref = None
+      for d in doc:
+         user_ref = db.collection('users').document(d.id)
+         break 
+
+      #Create dict to add
+      subscription_data = {
+         "current_period_start": datetime.now(),
+         "current_period_end": datetime.now() + relativedelta(months=1),
+         "payment_method": "Stripe",
+         "plan": subscription,
+         "hadTrial": True,
+         "status": "active",
+      }
+
+      usage_data = {
+         "current_credits": settings.app_pro_reset_credits,
+         "last_reset": datetime.now(),
+         "next_reset": datetime.now() + relativedelta(months=1),
+         "total_credits": settings.app_pro_reset_credits,
+         "used_credits": 0
+      }
+
+      # Add a new subscription
+      if user_ref:
+         user_doc = user_ref.get()
+
+         if user_doc.exists:
+            current_user = user_doc.to_dict()
+            hadTrial = current_user.get("subscription", {}).get("hadTrial", False)
+
+            if not hadTrial:
+               subscription_data.update({
+                  "current_period_end": datetime.now() + relativedelta(days=7),
+               })
+
+
+         user_ref.set({
+            "subscription": subscription_data,
+            "usage": usage_data
+         }, merge = True)
+         
+      return {
+         "status": "success",
+         "method": "add_improvement",
+         "type": "add_improvement",
+         "message": "Improvement added successfully",
+      }
+   except Exception as e:
+      raise HTTPException(status_code=501, detail=str(e))
