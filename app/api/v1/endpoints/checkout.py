@@ -30,7 +30,7 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
       )
 
       # Validate TRIAL
-      hadTrial = validate_user_data.get("subscription", {}).get("hadTrial",False)
+      hadTrial = validate_user_data["currentPlan"].get("hadTrial",False)
       trialDays = settings.app_trial_days
 
       if(hadTrial):
