@@ -34,7 +34,7 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
       trialDays = settings.app_trial_days
 
       if(hadTrial):
-         trialDays: None
+         trialDays: 0
 
       session = stripe.checkout.Session.create(
          payment_method_types=['card'],
