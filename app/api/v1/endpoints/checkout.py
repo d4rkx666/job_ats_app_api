@@ -32,7 +32,7 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
       session = stripe.checkout.Session.create(
          payment_method_types=['card'],
          line_items=[{
-               'price': 'price_1RNK4a4EcbVoOhTGDZ4zPYHT',
+               'price': settings.stripe_price_id,
                'quantity': 1,
          }],
          mode='subscription',
@@ -47,7 +47,51 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
          "session_id":session.id
       })
 
-   except Exception as e:
+   except stripe.error.StripeError as e:
+      response.update({
+         "success": False,
+         "type_error": e
+      })
+   finally:
+      return response
+
+
+@router.post("/create-portal-session")
+async def create_portal_session(user: dict = Depends(get_current_user)):
+
+   # Response INIT
+   response = {
+      "success": True,
+      "type_error": "",
+      "url": None
+   }
+
+   try:
+
+      validate_user_data = await getUserData(user["uid"])
+
+      # Retrieve customer
+      customers = stripe.Customer.list(email=validate_user_data["email"]).data
+      customer = customers[0]
+      if(not customer):
+         response.update({
+            "success": False,
+            "type_error": "no_customer",
+         })
+         return response
+      
+      # Create portal session
+      portal_session = stripe.billing_portal.Session.create(
+         customer=customer.id,
+         return_url=settings.stripe_return_session_url
+      )
+
+      response.update({
+         "url": portal_session.url
+      })
+      
+   
+   except stripe.error.StripeError as e:
       response.update({
          "success": False,
          "type_error": e
@@ -80,7 +124,6 @@ async def handle_webhook(request: Request):
       subscription = event.data.object
       customer_id = subscription.get("customer")
 
-      print(f"setting subs to {customer_id}")
       await set_subscription(customer_id, True)
       pass
    elif event.type == "customer.subscription.deleted":

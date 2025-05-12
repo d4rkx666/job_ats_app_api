@@ -281,12 +281,9 @@ async def set_subscription(customer_stripe_id: str, isPro: bool):
       query = users_ref.where(filter=FieldFilter('subscription.stripe_id', '==', customer_stripe_id))
 
       doc = query.stream()
-      print(doc)
       # Find user
       user_ref = None
       for d in doc:
-         print("user found")
-         print(d.id)
          user_ref = db.collection('users').document(d.id)
          break 
 

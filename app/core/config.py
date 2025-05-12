@@ -42,6 +42,10 @@ class Settings(BaseSettings):
    
    stripe_success_endpoint: str
    stripe_cancel_endpoint: str
+   stripe_return_session_url: str
+
+   
+   stripe_price_id: str
 
    class Config:
       env_file = ".env"
