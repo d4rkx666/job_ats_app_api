@@ -29,25 +29,28 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
          email=validate_user_data["email"]
       )
 
+      # Create payload
+      session_params = {
+         'payment_method_types': ['card'],
+         'line_items': [{
+            'price': settings.stripe_price_id,
+            'quantity': 1,
+         }],
+         'mode': 'subscription',
+         'customer': customer.id,
+         'success_url': settings.stripe_success_endpoint,
+         'cancel_url': settings.stripe_cancel_endpoint,
+      }
+
       # Validate TRIAL
       hadTrial = validate_user_data["currentPlan"].get("hadTrial",False)
       if(hadTrial):
-         subscription_data = {
+         session_params['subscription_data'] = {
             'trial_period_days': settings.app_trial_days
          }
 
-      session = stripe.checkout.Session.create(
-         payment_method_types=['card'],
-         line_items=[{
-               'price': settings.stripe_price_id,
-               'quantity': 1,
-         }],
-         mode='subscription',
-         subscription_data=subscription_data if subscription_data else None,
-         customer=customer.id,
-         success_url=settings.stripe_success_endpoint,
-         cancel_url=settings.stripe_cancel_endpoint,
-      )
+      # Create the session
+      session = stripe.checkout.Session.create(**session_params)
 
       await update_user_stripe(validate_user_data["user_ref"],customer.id)
 
