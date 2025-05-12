@@ -28,10 +28,13 @@ async def getUserData(user_id: str):
  
          # Get plan
          currentPlan = suscription.get("plan", "free")
+
+         # Get if user had Trial
+         hadTrial = suscription.get("hadTrial", False)
       else:
          raise HTTPException(status_code=404, detail="User not found")
 
-      return {"creations": creations, "currentPlan": currentPlan, "profile": profile,"email": email, "user_ref": user_ref}
+      return {"creations": creations, "currentPlan": currentPlan, "profile": profile,"email": email, "hadTrial": hadTrial, "user_ref": user_ref}
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
 
