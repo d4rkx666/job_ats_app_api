@@ -288,7 +288,7 @@ async def set_subscription(customer_stripe_id: str, isPro: bool):
          break 
 
       #Create dict to add
-      inserting_data = {
+      subscription_data = {
          "current_period_start": datetime.now(),
          "current_period_end": datetime.now() + relativedelta(months=1),
          "payment_method": "Stripe",
@@ -296,10 +296,19 @@ async def set_subscription(customer_stripe_id: str, isPro: bool):
          "status": "active",
       }
 
+      usage_data = {
+         "current_credits": settings.app_pro_reset_credits,
+         "last_reset": datetime.now(),
+         "next_reset": datetime.now() + relativedelta(months=1),
+         "total_credits": settings.app_pro_reset_credits,
+         "used_credits": 0
+      }
+
       # Add a new subscription
       if user_ref:
          user_ref.set({
-            "subscription": inserting_data
+            "subscription": subscription_data,
+            "usage": usage_data
          }, merge = True)
          
       return {
