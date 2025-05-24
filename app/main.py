@@ -1,42 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.endpoints import resume,auth,feedback, profile, export, checkout
+from app.api.v1.endpoints import resume, auth, feedback, profile, export, checkout, daily_reset
 from app.core.config import settings
-from apscheduler.schedulers.background import BackgroundScheduler
-from contextlib import asynccontextmanager
-from app.services.user_actions_manager import reset_monthly_credits_and_plans
-
-# Initialize scheduler at module level (outside FastAPI app)
-scheduler = BackgroundScheduler()
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    if(settings.app_env_prod):
-        # Startup
-        scheduler.add_job(
-            reset_monthly_credits_and_plans,
-            'cron',
-            hour=0,
-            minute=1,
-            timezone='UTC'
-        )
-        scheduler.start()
-        
-        yield
-        
-        # Shutdown
-        scheduler.shutdown()
-    else:
-        yield
-        
-        # Shutdown
-        scheduler.shutdown()
 
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description=settings.app_description,
-    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -59,6 +30,7 @@ app.include_router(profile.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(export.router, prefix="/api/v1")
 app.include_router(checkout.router, prefix="/api/v1")
+app.include_router(daily_reset.router, prefix="/api/v1")
 
 # Run the app (optional, for development)
 if __name__ == "__main__":

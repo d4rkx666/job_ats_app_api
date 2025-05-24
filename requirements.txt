@@ -13,6 +13,5 @@ python-dateutil
 pdfkit
 python-docx
 htmldocx
-apscheduler
 xhtml2pdf
 stripe

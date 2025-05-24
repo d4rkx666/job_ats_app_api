@@ -50,6 +50,8 @@ class Settings(BaseSettings):
    
    stripe_price_id: str
 
+   cron_secret: str
+
    class Config:
       env_file = ".env"
 
