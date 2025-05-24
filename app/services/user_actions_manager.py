@@ -205,54 +205,58 @@ async def deduct_credits(user_id: str, action: str) -> bool:
 
 def reset_monthly_credits_and_plans():
    print("reset started")
-   users_ref = db.collection("users")
-   
-   for user in users_ref.stream():
-      user_data = user.to_dict()
 
-      now = datetime.now(timezone.utc)
-      plan_expire_date = firestore_to_datetime(user_data.get("subscription", {}).get("current_period_end"))
-      next_reset_date = firestore_to_datetime(user_data.get("usage", {}).get("next_reset"))
-      plan = user_data.get("subscription", {}).get("plan", "free")
+   try:
+      users_ref = db.collection("users")
+      
+      for user in users_ref.stream():
+         user_data = user.to_dict()
 
-      # Reset plan if plan date expiration exists and is past
-      if plan_expire_date and plan == "pro":
-         if now > plan_expire_date:
+         now = datetime.now(timezone.utc)
+         plan_expire_date = firestore_to_datetime(user_data.get("subscription", {}).get("current_period_end"))
+         next_reset_date = firestore_to_datetime(user_data.get("usage", {}).get("next_reset"))
+         plan = user_data.get("subscription", {}).get("plan", "free")
 
-            historyData={
-               "type":"pro_plan_expired",
-               "plan_expired_date":datetime.now(),
-               "last_plan": plan,
-               "createdAt": datetime.now(),
-            }
+         # Reset plan if plan date expiration exists and is past
+         if plan_expire_date and plan == "pro":
+            if now > plan_expire_date:
+
+               historyData={
+                  "type":"pro_plan_expired",
+                  "plan_expired_date":datetime.now(),
+                  "last_plan": plan,
+                  "createdAt": datetime.now(),
+               }
+               
+               # Downgrade to free
+               user.reference.update({
+                  "usage.current_credits": settings.app_free_initial_credits,
+                  "usage.total_credits": settings.app_free_initial_credits,
+                  "usage.used_credits": 0,
+                  "usage.last_reset": datetime.now(),
+                  "usage.next_reset": datetime.now() + relativedelta(months=1),
+                  "subscription.current_period_start": None,
+                  "subscription.current_period_end": None,
+                  "subscription.plan": "free",
+                  "subscription.history": firestore.ArrayUnion([historyData])
+               })
+         
+         # Reset if next_reset is past or doesn't exist
+         elif not next_reset_date or now > next_reset_date:
+            new_credits = settings.app_free_initial_credits if plan == "free" else settings.app_pro_reset_credits if plan == "pro" else 0
             
-            # Downgrade to free
+            # Update user with reset credits
             user.reference.update({
-               "usage.current_credits": settings.app_free_initial_credits,
-               "usage.total_credits": settings.app_free_initial_credits,
+               "usage.current_credits": new_credits,
+               "usage.total_credits": new_credits,
                "usage.used_credits": 0,
                "usage.last_reset": datetime.now(),
-               "usage.next_reset": datetime.now() + relativedelta(months=1),
-               "subscription.current_period_start": None,
-               "subscription.current_period_end": None,
-               "subscription.plan": "free",
-               "subscription.history": firestore.ArrayUnion([historyData])
+               "usage.next_reset": datetime.now() + relativedelta(months=1)
             })
-      
-      # Reset if next_reset is past or doesn't exist
-      elif not next_reset_date or now > next_reset_date:
-         new_credits = settings.app_free_initial_credits if plan == "free" else settings.app_pro_reset_credits if plan == "pro" else 0
-         
-         # Update user with reset credits
-         user.reference.update({
-            "usage.current_credits": new_credits,
-            "usage.total_credits": new_credits,
-            "usage.used_credits": 0,
-            "usage.last_reset": datetime.now(),
-            "usage.next_reset": datetime.now() + relativedelta(months=1)
-         })
-         
-         print("user reset credits:")
+            
+      print("reset ends")
+   except Exception as e:
+      print(e)
 
 
 
