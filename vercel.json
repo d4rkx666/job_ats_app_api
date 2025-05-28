@@ -19,7 +19,7 @@
   "crons": [
     {
       "path": "/api/v1/daily-check",
-      "schedule": "55 22 * * *"
+      "schedule": "0 5 * * *"
     }
   ]
 }
