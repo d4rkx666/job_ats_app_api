@@ -5,7 +5,7 @@ from app.core.config import settings
 
 router = APIRouter()
 
-@router.post("/daily-reset")
+@router.post("/daily-check")
 async def daily_reset(request: Request):
    try:
       auth = request.headers.get('authorization').split(" ")[1]
