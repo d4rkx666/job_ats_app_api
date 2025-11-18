@@ -13,5 +13,5 @@ python-dateutil
 pdfkit
 python-docx
 htmldocx
-xhtml2pdf==0.2.10
+xhtml2pdf
 stripe
