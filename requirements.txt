@@ -13,5 +13,6 @@ python-dateutil
 pdfkit
 python-docx
 htmldocx
-xhtml2pdf
+svglib==1.2.0
+xhtml2pdf==0.2.10
 stripe

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from app.services.firebase_service import db  # Import the Firestore client
 from app.models.schemas import ProfileRequest, ProfilePersonalInformationRequest, ProfileSkillsRequest
