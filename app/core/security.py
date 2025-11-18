@@ -1,5 +1,4 @@
-import firebase_admin
-from firebase_admin import auth, credentials
+from firebase_admin import auth
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer
 
