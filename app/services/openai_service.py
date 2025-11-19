@@ -37,7 +37,6 @@ async def optimize_resume(resume_text: str, job_title: str, job_description: str
          messages=[
             {"role": "system", "content": role_system},
             {"role": "user", "content": role_user}],
-         max_prompt_tokens=6000,
          tools=optimize_resume_schema(rules),
          tool_choice={"type": "function", "function": {"name": "optimize_resume"}},
       )
@@ -84,7 +83,6 @@ async def extract_keywords_ai(job_description, rules: dict, plan) -> dict:
       messages=[
          {"role": "system", "content": role_system},
          {"role": "user", "content": role_user}],
-      max_prompt_tokens=6000,
       tools=extract_keywords_schema(rules),
       tool_choice={"type": "function", "function": {"name": "extract_keywords"}},
       )
@@ -142,9 +140,7 @@ async def create_resume(profile: dict, keywords: dict, job_description_lang: str
       messages=[
          {"role": "system", "content": role_system},
          {"role": "user", "content": role_user}
-      ],
-         max_prompt_tokens=6000,
-      )
+      ])
       
       # Get the response and print it
       model_response = completion.choices[0].message.content
@@ -193,8 +189,7 @@ async def pre_process_resume(profile: dict, keywords: dict, rules: dict, job_des
          model=model_gpt,
          messages=[
             {"role": "system", "content": role_system},
-            {"role": "user", "content": role_user}],
-         max_prompt_tokens=6000,
+            {"role": "user", "content": role_user}]
       )
       
       # Get the response and print it
@@ -235,7 +230,6 @@ async def calculate_ats_score(markdown_resume: str, keywords: dict, rules: dict,
       messages=[
          {"role": "system", "content": role_system},
          {"role": "user", "content": role_user}],
-      max_prompt_tokens=6000,
       tools=ats_score_schema(rules),
       tool_choice={"type": "function", "function": {"name": "ats_score"}},
       )
@@ -288,7 +282,6 @@ async def recalculate_ats_score(markdown_resume: str, prev_analysis: str, keywor
       messages=[
          {"role": "system", "content": role_system},
          {"role": "user", "content": role_user}],
-      max_prompt_tokens=6000,
       tools=ats_score_schema(rules),
       tool_choice={"type": "function", "function": {"name": "ats_score"}},
       )

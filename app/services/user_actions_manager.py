@@ -201,6 +201,32 @@ async def deduct_credits(user_id: str, action: str) -> bool:
       return process(db.transaction())
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
+   
+async def has_credits_for_action(user_id: str, action: str) -> bool:
+   try:
+      user_ref = db.collection("users").document(user_id)
+      user_doc = user_ref.get()
+
+      # get cost vars:
+      cost = await get_costs()
+
+      # Define credit costs
+      CREDIT_COSTS = {
+         "keyword_optimizations": cost.get("keyword_extraction"),
+         "resume_optimizations": cost.get("resume_optimization"),
+         "resume_creations": cost.get("resume_creation"),
+         "resume_ats_analyzation": cost.get("ats_analysis"),
+      }
+
+      current_user = user_doc.to_dict()
+      current_credits = current_user.get("usage", {}).get("current_credits", 0)
+      cost = CREDIT_COSTS[action]
+      
+      if current_credits >= cost:
+         return True
+      return False
+   except Exception as e:
+      raise HTTPException(status_code=500, detail=str(e))
 
 
 def reset_monthly_credits_and_plans():

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, SaveResumeRequest, CreateResumeRequest, ReoptimizeResumeRequest
 from app.services.openai_service import optimize_resume, create_resume, extract_keywords_ai, calculate_ats_score, recalculate_ats_score
 from app.core.security import get_current_user
-from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_keywords_draft, deduct_credits,update_creation, update_resume
+from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_keywords_draft, deduct_credits, has_credits_for_action, update_creation, update_resume
 from app.services.rules_management import get_templates, get_keywords_rules, get_improvements_rules
 from app.services.log_saver import setChatGptError
 from PyPDF2 import PdfReader
@@ -59,7 +59,7 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
 
       
       # Validate remaining credits
-      hasCredits = await deduct_credits(user["uid"], current_function)
+      hasCredits = await has_credits_for_action(user["uid"], current_function)
       if(hasCredits):
          # Clean job description
          job_description = clean_text(job_description)
@@ -69,12 +69,11 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
 
          #Get optimized suggestions
          json_improvements = await optimize_resume(resume_text, job_title, job_description, manageRules, validate_user_data["currentPlan"])
-
          response["optimized_resume"] = json.dumps(json_improvements.get("improvements",{}))
 
          # Add suggestions to firebase
          await add_improvement(validate_user_data["user_ref"], job_title, job_description, json_improvements.get("improvements",{}))
-
+         await deduct_credits(user["uid"], current_function)
          return response
       else: 
          response["success"] = False
@@ -110,7 +109,7 @@ async def extract_keywords_endpoint(request: KeywordOptimizationRequest, user: d
       manageRules= await get_keywords_rules()
 
       # Validate credits
-      hasCredits = await deduct_credits(user["uid"], current_function)
+      hasCredits = await has_credits_for_action(user["uid"], current_function)
       if(hasCredits):
          # Extract with AI
          jd_lang = ""
@@ -133,6 +132,8 @@ async def extract_keywords_endpoint(request: KeywordOptimizationRequest, user: d
          else:
             insert = await add_keywords(validate_user_data["user_ref"], request.job_title, request.job_description, jd_lang, response["keywords"])
             response["idDraft"] = insert["idInserted"]
+         
+         await deduct_credits(user["uid"], current_function)
 
       return response
 
@@ -189,7 +190,7 @@ async def create_resume_endpoint(request: CreateResumeRequest, user: dict = Depe
       
       
       # Validate credits then call AI
-      hasCredits = await deduct_credits(user["uid"], current_function)
+      hasCredits = await has_credits_for_action(user["uid"], current_function)
       if(hasCredits):
 
          # Create the markdown resume
@@ -223,6 +224,8 @@ async def create_resume_endpoint(request: CreateResumeRequest, user: dict = Depe
             response["type_error"] = "incorrect_json"
             await setChatGptError(response["type_error"], str(caculated_ats_score_json), user["uid"])
             return response
+         
+         await deduct_credits(user["uid"], current_function)
       else:
          response["success"] = False
          response["type_error"] = "no_credits_left"
@@ -257,7 +260,7 @@ async def reoptimize_resume_endpoint(request: ReoptimizeResumeRequest, user: dic
       creation = next(item for item in validate_user_data["creations"] if item["id"] == request.idCreation)
       
       # Validate credits then call AI
-      hasCredits = await deduct_credits(user["uid"], current_function)
+      hasCredits = await has_credits_for_action(user["uid"], current_function)
       if(hasCredits):
          manageTemplate = await get_templates()
 
@@ -286,6 +289,8 @@ async def reoptimize_resume_endpoint(request: ReoptimizeResumeRequest, user: dic
             response["type_error"] = "incorrect_json"
             await setChatGptError(response["type_error"], str(calculated_ats_score_json), user["uid"])
             return response
+         
+         await deduct_credits(user["uid"], current_function)
       else:
          response["success"] = False
          response["type_error"] = "no_credits_left"
