@@ -3,7 +3,6 @@ from app.core.security import get_current_user
 from app.services.stripe_service import stripe
 from app.services.user_actions_manager import update_user_stripe, set_subscription
 from app.core.config import settings
-from app.models.schemas import CreateSubscriptionRequest
 from app.services.user_actions_manager import getUserData
 
 
@@ -24,9 +23,11 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
       validate_user_data = await getUserData(user["uid"])
 
       # Create or retrieve customer
-      customers = stripe.Customer.list(email=validate_user_data["email"]).data
+      #customers = stripe.Customer.list(email=validate_user_data["email"]).data
+      customers = stripe.Customer.list(email="test+location_CA@example.com").data
       customer = customers[0] if customers else stripe.Customer.create(
-         email=validate_user_data["email"]
+         #email=validate_user_data["email"]
+         email="test+location_CA@example.com"
       )
 
       # Validate TRIAL
@@ -58,6 +59,37 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
       })
 
    except Exception as e:
+      response.update({
+         "success": False,
+         "type_error": e
+      })
+   finally:
+      return response
+   
+@router.post("/get-prices")
+async def get_prices():
+   # Response INIT
+   response = {
+      "success": True,
+      "type_error": "",
+      "prices": {}
+   }
+   try:
+      prices = stripe.Price.list(product=settings.stripe_product_id, active=True, limit=5)
+      
+      if prices.data:
+         for price in prices.data:
+            currency = price.currency.upper()
+            amount = price.unit_amount / 100
+            
+            if(currency == "MXN" or currency == "USD"):
+               response["prices"][currency] = f"{currency} {amount}"
+      else:
+         response.update({
+         "success": False,
+         "type_error": "No active prices found for this product."
+      })
+   except stripe.error.StripeError as e:
       response.update({
          "success": False,
          "type_error": e

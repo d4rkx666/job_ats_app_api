@@ -49,6 +49,7 @@ class Settings(BaseSettings):
 
    
    stripe_price_id: str
+   stripe_product_id: str
 
    cron_secret: str
 
