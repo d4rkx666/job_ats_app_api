@@ -23,11 +23,9 @@ async def create_checkout_session(user: dict = Depends(get_current_user)):
       validate_user_data = await getUserData(user["uid"])
 
       # Create or retrieve customer
-      #customers = stripe.Customer.list(email=validate_user_data["email"]).data
-      customers = stripe.Customer.list(email="test+location_CA@example.com").data
+      customers = stripe.Customer.list(email=validate_user_data["email"]).data
       customer = customers[0] if customers else stripe.Customer.create(
-         #email=validate_user_data["email"]
-         email="test+location_CA@example.com"
+         email=validate_user_data["email"]
       )
 
       # Validate TRIAL
