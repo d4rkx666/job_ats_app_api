@@ -38,16 +38,17 @@ async def getUserData(user_id: str):
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
 
-async def add_improvement(user_ref: dict, job_title: str, job_description: str, new_improvement: dict):
+async def add_improvement(user_ref: dict, job_title: str, company_name: str, job_description: str, new_improvement: dict, message: str):
    try:
 
       #Create dict to add
       inserting_data = {
          "id": str(uuid.uuid4()),
          "job_title": job_title,
+         "company_name": company_name,
          "job_description": job_description,
          "improvements_list": new_improvement,
-         "current_version": "free",
+         "message": message,
          "createdAt": datetime.now(),
          "status": "completed"
       }

@@ -65,9 +65,10 @@ def optimize_resume_schema(rules: dict) -> dict:
                             },
                             "required":["category", "suggestions"]
                         }
-                    }
+                    },
+                    "message":{"type": "string"}
                 },
-                "required": ["improvements"],
+                "required": ["improvements", "message"],
             },
         },
     }

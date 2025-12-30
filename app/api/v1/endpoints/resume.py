@@ -13,7 +13,7 @@ import json
 router = APIRouter()
 
 @router.post("/optimize-resume", response_model = OptimizedResumeResponse)
-async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: str = Form(...), job_description: str = Form(...), lang: str = Form(...),user: dict = Depends(get_current_user)):
+async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: str = Form(...), job_description: str = Form(...), company_name: str = Form(...), user: dict = Depends(get_current_user)):
 
    # Current function for credits
    current_function = "resume_optimizations"
@@ -22,6 +22,8 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
    response = {
       "optimized_resume": "",
       "job_title": job_title,
+      "company_name": company_name,
+      "message": "",
       "success": True,
       "type_error": ""
    }
@@ -53,6 +55,7 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
       resume_text = ""
       for page in reader.pages:
          resume_text += page.extract_text()
+      resume_text = clean_text(resume_text)
 
       # Check if has improvements left
       validate_user_data = await getUserData(user["uid"])
@@ -70,10 +73,12 @@ async def optimize_resume_endpoint(resume: UploadFile = File(...), job_title: st
          #Get optimized suggestions
          json_improvements = await optimize_resume(resume_text, job_title, job_description, manageRules, validate_user_data["currentPlan"])
          response["optimized_resume"] = json.dumps(json_improvements.get("improvements",{}))
+         response["message"] = json_improvements.get("message","")
 
          # Add suggestions to firebase
-         await add_improvement(validate_user_data["user_ref"], job_title, job_description, json_improvements.get("improvements",{}))
+         await add_improvement(validate_user_data["user_ref"], job_title, company_name, job_description, json_improvements.get("improvements",{}), json_improvements.get("message",""))
          await deduct_credits(user["uid"], current_function)
+         print(f"response: {response}")
          return response
       else: 
          response["success"] = False
