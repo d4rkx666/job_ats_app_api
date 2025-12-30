@@ -1,3 +1,6 @@
 .env
 app/firebase_sdk.json
 /venv
+
+*.pyc
+__pycache__/

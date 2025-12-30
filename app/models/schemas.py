@@ -214,6 +214,9 @@ class CreateSubscriptionRequest(BaseModel):
 ## RESPONSES
 class OptimizedResumeResponse(BaseModel):
    optimized_resume: str
+   job_title: str
+   company_name: str
+   message: str
    success: bool
    type_error: str
 
