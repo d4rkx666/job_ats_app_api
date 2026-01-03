@@ -32,6 +32,7 @@ async def login(response: Response, token: str = Body(embed=True)):
          value="true", 
          httponly=False,
          secure=True,
+         samesite="None",
          max_age=int(expires_in.total_seconds())
       )
 
