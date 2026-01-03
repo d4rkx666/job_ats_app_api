@@ -22,6 +22,7 @@ async def login(response: Response, token: str = Body(embed=True)):
          httponly=True,
          secure=True,
          samesite="None",
+         domain=settings.cookies_domain,
          max_age=int(expires_in.total_seconds()),
          path="/"
       )
@@ -33,6 +34,7 @@ async def login(response: Response, token: str = Body(embed=True)):
          httponly=False,
          secure=True,
          samesite="None",
+         domain=settings.cookies_domain,
          max_age=int(expires_in.total_seconds())
       )
 

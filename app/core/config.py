@@ -33,6 +33,9 @@ class Settings(BaseSettings):
    # CORS settings
    cors_origins: str
 
+   # Cookies domain
+   cookies_domain: str
+
    # OpenAI settings
    openai_api_key: str
 
