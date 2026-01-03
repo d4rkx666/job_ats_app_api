@@ -1,45 +1,45 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer
-from app.core.security import get_current_user
+from fastapi import APIRouter, HTTPException, Body, Response
 from app.models.schemas import InsertDataRequest
-from firebase_admin import auth, firestore
+from firebase_admin import auth
 from app.services.firebase_service import db  # Import the Firestore client
 from app.core.config import settings
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from datetime import timedelta
 
 router = APIRouter()
 
-## !!!! NOT IN USE !!!!
-"""@router.post("/login")
-async def login(login_request: LoginRequest):
+@router.post("/auth")
+async def login(response: Response, token: str = Body(embed=True)):
    try:
-      # Verify the user's email and password using Firebase Admin SDK
-      user = auth.sign_in_with_email_and_password(login_request.email, login_re)
+      expires_in = timedelta(hours=1)
+      session_cookie = auth.create_session_cookie(token, expires_in=expires_in)
 
-      # Generate a Firebase ID token (or custom token)
-      custom_token = auth.create_custom_token(user.uid)
+      # PRIVATE COOKIE
+      response.set_cookie(
+         key="session",
+         value=session_cookie,
+         httponly=True,
+         secure=True,
+         samesite="lax",
+         max_age=int(expires_in.total_seconds()),
+         path="/"
+      )
 
-      # Get user data from Firestore
-      db = firestore.client()
-      user_doc = db.collection("users").document(user.uid).get()
-      if not user_doc.exists:
-         raise HTTPException(status_code=404, detail="Email or password incorrect. Please try again.")
+      # PUBLIC COOKIE
+      response.set_cookie(
+         key="logged", 
+         value="true", 
+         httponly=False,
+         max_age=int(expires_in.total_seconds())
+      )
 
-      user_data = user_doc.to_dict()
-
-      # Return the token and user data
       return {
-         "auth": True,
-         "token": custom_token,
-         "user": user_data,
+         "success": True
       }
-   except auth.UserNotFoundError:
-      raise HTTPException(status_code=404, detail="Email or password incorrect. Please try again.")
    except Exception as e:
-      raise HTTPException(status_code=500, detail=str(e))
+      raise HTTPException(status_code=401, detail="Email or password incorrect. Please try again.")
 
-"""
 @router.post("/signup")
 async def signup(signup_request: InsertDataRequest):
    try:
