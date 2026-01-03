@@ -21,7 +21,7 @@ async def login(response: Response, token: str = Body(embed=True)):
          value=session_cookie,
          httponly=True,
          secure=True,
-         samesite="lax",
+         samesite="None",
          max_age=int(expires_in.total_seconds()),
          path="/"
       )
