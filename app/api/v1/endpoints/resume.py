@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form
 from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, SaveResumeRequest, CreateResumeRequest, ReoptimizeResumeRequest
+from app.models.schemas_resume import ResumeBackgroundTasksResponse
 from app.services.openai_service import optimize_resume, create_resume, extract_keywords_ai, calculate_ats_score, recalculate_ats_score
 from app.core.security import get_current_user
+from app.services.resume_creation import createResume, updateProgress
 from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_keywords_draft, deduct_credits, has_credits_for_action, update_creation, update_resume
 from app.services.rules_management import get_templates, get_keywords_rules, get_improvements_rules
 from app.services.log_saver import setChatGptError
@@ -148,96 +150,55 @@ async def extract_keywords_endpoint(request: KeywordOptimizationRequest, user: d
    
 
 
-@router.post("/create-resume")
-async def create_resume_endpoint(request: CreateResumeRequest, user: dict = Depends(get_current_user)):
+@router.post("/create-resume", response_model=ResumeBackgroundTasksResponse)
+async def create_resume_endpoint(request: CreateResumeRequest, backgroundTasks: BackgroundTasks, user: dict = Depends(get_current_user)) ->ResumeBackgroundTasksResponse:
 
    # Current function for credits
    current_function = "resume_creations"
 
    # Init response
    response = {
-      "resume": "",
-      "ats": {},
       "success": True,
-      "type_error": ""
+      "message": ""
    }
 
    try:
-      # Get user data
-      validate_user_data = await getUserData(user["uid"])
-
-      # Validate subscription
-      isProUser = False
-      if(validate_user_data["currentPlan"] == "pro"):
-         isProUser = True
-
-      # Get templates
-      manageTemplate = await get_templates()
-      template = manageTemplate.get("templates",{}).get(request.template,{})
-      
-      # Validates if the template is pro and the user is not pro
-      if(template.get("isPro", True)):
-         if(not isProUser):
-            response["success"] = False
-            response["type_error"] = "user_not_pro_plan"
-            return response
-         
-         
-      if(request.coverLetter):
-         if(not isProUser):
-            response["success"] = False
-            response["type_error"] = "user_not_pro_plan"
-            return response
-         
-      # Finds creation by ID
-      creation = next(item for item in validate_user_data["creations"] if item["id"] == request.idDraft)
-      #print(clean_text(creation["job_description"]))
-      
-      
       # Validate credits then call AI
       hasCredits = await has_credits_for_action(user["uid"], current_function)
       if(hasCredits):
+         # Get user data
+         validate_user_data = await getUserData(user["uid"])
 
-         # Create the markdown resume
-         globalRules = manageTemplate.get("global_rules",{})
-         pre_processing_rules = manageTemplate.get("pre_process",{})
+         # Validate subscription
+         isProUser = False
+         if(validate_user_data["currentPlan"] == "pro"):
+            isProUser = True
 
-         # Returns markdown resume in plain text and pre processed resume in JSON
-         markdown_resume = await create_resume(validate_user_data["profile"], creation["keywords"],  creation["job_description_lang"], template, pre_processing_rules, globalRules, request.lang, validate_user_data["currentPlan"])
+         # Get templates
+         manageTemplate = await get_templates()
+         template = manageTemplate.get("templates",{}).get(request.template,{})
 
-         # Plain text markdown
-         response["resume"] = markdown_resume
-
-         # Get the ATS score and tips
-         ats_score_rules = manageTemplate.get("ats_completion",{})
-         caculated_ats_score_json = await calculate_ats_score(response["resume"], creation["keywords"], ats_score_rules, validate_user_data["currentPlan"])
-
-         if(caculated_ats_score_json):
-            ats_score = process_ats_score(caculated_ats_score_json, creation["keywords"])
-            if(ats_score):
-               response["ats"] = ats_score["ats"]
-               creation["keywords"] = ats_score["keywords"]
-            else:
+         # Validates if the template is pro and the user is not pro
+         if(template.get("isPro", True)):
+            if(not isProUser):
                response["success"] = False
-               response["type_error"] = "ats_not_processed"
-               await setChatGptError(response["type_error"], str(ats_score), user["uid"])
+               response["message"] = "user_not_pro_plan"
+               return response      
+            
+         if(request.coverLetter):
+            if(not isProUser):
+               response["success"] = False
+               response["message"] = "user_not_pro_plan"
                return response
-            # Add the resume and matched keywords
-            await update_creation(validate_user_data["user_ref"], response["resume"], caculated_ats_score_json, response["ats"], creation["keywords"], validate_user_data["creations"], request.idDraft)
-         else:
-            response["success"] = False
-            response["type_error"] = "incorrect_json"
-            await setChatGptError(response["type_error"], str(caculated_ats_score_json), user["uid"])
-            return response
          
-         await deduct_credits(user["uid"], current_function)
+         # RUN PROCESS
+         backgroundTasks.add_task(createResume, current_function, user["uid"], validate_user_data, request, manageTemplate, template)
       else:
          response["success"] = False
-         response["type_error"] = "no_credits_left"
+         response["message"] = "no_credits_left"
          return response
 
       return response
-
       
    except Exception as e:
       print(e)

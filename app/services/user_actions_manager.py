@@ -79,7 +79,9 @@ async def add_keywords(user_ref: dict, job_title: str, job_description: str, jd_
          "job_description_lang": jd_lang,
          "keywords": keywords,
          "createdAt": datetime.now(),
-         "status": "draft"
+         "status": "draft",
+         "steps": 6,
+         "stepProgress": 1
       }
 
       # Add the new improvement to the array
