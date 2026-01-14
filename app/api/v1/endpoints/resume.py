@@ -1,9 +1,10 @@
+import time
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form
-from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, SaveResumeRequest, CreateResumeRequest, ReoptimizeResumeRequest
+from app.models.schemas import OptimizedResumeResponse, KeywordOptimizationRequest, SaveResumeRequest, CreateResumeRequest, ReoptimizeResumeRequest, ViewedResumeRequest
 from app.models.schemas_resume import ResumeBackgroundTasksResponse
-from app.services.openai_service import optimize_resume, create_resume, extract_keywords_ai, calculate_ats_score, recalculate_ats_score
+from app.services.openai_service import optimize_resume, extract_keywords_ai, recalculate_ats_score
 from app.core.security import get_current_user
-from app.services.resume_creation import createResume, updateProgress
+from app.services.resume_creation import createResume, updateViewed
 from app.services.user_actions_manager import getUserData, add_improvement, add_keywords, update_keywords_draft, deduct_credits, has_credits_for_action, update_creation, update_resume
 from app.services.rules_management import get_templates, get_keywords_rules, get_improvements_rules
 from app.services.log_saver import setChatGptError

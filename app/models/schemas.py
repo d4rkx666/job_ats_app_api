@@ -117,6 +117,8 @@ class ProfilePersonalInformationRequest(BaseModel):
    @field_validator("phone")
    @classmethod
    def validate_and_sanitize_phone(cls, v: str) -> str:
+      if(v == ""):
+         return v
       # Step 1: Sanitize (remove HTML/JS tags)
       sanitized = clean(v.strip())
 
@@ -198,7 +200,9 @@ class SaveResumeRequest(BaseModel):
       if not v:
          return v
       return clean(v)  # Strips HTML/JS tags
-   
+
+class ViewedResumeRequest(BaseModel):
+   idCreation: str
 
 class ExportPDFRequest(BaseModel):
    html: str

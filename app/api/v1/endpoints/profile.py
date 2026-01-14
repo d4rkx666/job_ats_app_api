@@ -38,7 +38,7 @@ async def update_personal_information_endpoint(profile_request: ProfilePersonalI
 
 
 @router.post("/update-skills")
-async def update_personal_information_endpoint(profile_request: ProfileSkillsRequest,user: dict = Depends(get_current_user)):
+async def update_skills_endpoint(profile_request: ProfileSkillsRequest,user: dict = Depends(get_current_user)):
 
    try:
       user_ref = db.collection("users").document(user["uid"])

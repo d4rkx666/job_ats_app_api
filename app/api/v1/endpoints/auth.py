@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Body, Response
+from fastapi import APIRouter, HTTPException, Body, Request, Response
 from app.models.schemas import InsertDataRequest
 from firebase_admin import auth
 from app.services.firebase_service import db  # Import the Firestore client
@@ -43,6 +43,21 @@ async def login(response: Response, token: str = Body(embed=True)):
       }
    except Exception as e:
       raise HTTPException(status_code=401, detail="Email or password incorrect. Please try again.")
+
+@router.post("/logout")
+async def logout(response: Response, request: Request):
+    session_cookie = request.cookies.get("session")
+    if session_cookie:
+        try:
+            decoded_claims = auth.verify_session_cookie(session_cookie)
+            auth.revoke_refresh_tokens(decoded_claims['uid'])
+        except:
+            pass
+    
+    response.delete_cookie(key="session", domain=settings.cookies_domain, path="/")
+    response.delete_cookie(key="logged", domain=settings.cookies_domain, path="/")
+    
+    return {"success": True}
 
 @router.post("/signup")
 async def signup(signup_request: InsertDataRequest):
