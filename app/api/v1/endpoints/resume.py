@@ -298,3 +298,23 @@ async def save_resume_endpoint(request: SaveResumeRequest, user: dict = Depends(
       
    except Exception as e:
       print(e)
+
+@router.post("/viewed-resume")
+async def save_resume_endpoint(request: ViewedResumeRequest, user: dict = Depends(get_current_user)):
+   # Init response
+   response = {
+      "success": True,
+      "type_error": ""
+   }
+
+   current_function = "resume_creations"
+
+   try:
+      # Get user data
+      validate_user_data = await getUserData(user["uid"])
+      await updateViewed(validate_user_data["user_ref"], request.idCreation, current_function, validate_user_data["creations"], True)   
+   except Exception as e:
+      response["success"] = False
+      response["type_error"] = "error_updating_viewed"
+   
+   return response
