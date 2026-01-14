@@ -205,6 +205,36 @@ async def deduct_credits(user_id: str, action: str) -> bool:
    except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
    
+async def compensate_credits(user_id: str, action: str) -> bool:
+   try:
+      user_ref = db.collection("users").document(user_id)
+
+      # get cost vars:
+      cost = await get_costs()
+
+      # Define credit costs
+      CREDIT_COSTS = {
+         "keyword_optimizations": cost.get("keyword_extraction"),
+         "resume_optimizations": cost.get("resume_optimization"),
+         "resume_creations": cost.get("resume_creation"),
+         "resume_ats_analyzation": cost.get("ats_analysis"),
+      }
+      
+      @firestore.transactional
+      def process(transaction):
+         cost = CREDIT_COSTS[action]
+         
+         transaction.update(user_ref, {
+               "usage.current_credits": firestore.Increment(cost),
+               "usage.used_credits": firestore.Increment(-cost),
+               f"usage.actions.{action}": firestore.Increment(-1)
+         })
+         return True
+      
+      return process(db.transaction())
+   except Exception as e:
+      raise HTTPException(status_code=500, detail=str(e))
+   
 async def has_credits_for_action(user_id: str, action: str) -> bool:
    try:
       user_ref = db.collection("users").document(user_id)
