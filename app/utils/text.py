@@ -40,13 +40,6 @@ def process_ats_score(ats_data: dict, keywords: dict) -> dict:
             kw = item["keyword"]
             item["matched"] = (kw in full_match_kws) or (kw in half_match_kws)
             item["half"] = kw in half_match_kws
-
-        print("full matches are:")
-        print(full_match_kws)
-        print("half matches are:")
-        print(half_match_kws)
-        print("final kw dict is: ")
-        print(keywords)
         
         keyword_score = min(
             max(
@@ -83,11 +76,11 @@ def process_ats_score(ats_data: dict, keywords: dict) -> dict:
         # Industry-Specific Tips (Optional)
         tips = ats_data.get("tips", [])
 
-        ats_keyword_score = (keyword_score / 50) * 100
-        ats_structure_score = (structure_score / 30) * 100
-        ats_readability_score = (readability_score / 20) * 100
+        ats_keyword_score = round((keyword_score / 50) * 100)
+        ats_structure_score = round((structure_score / 30) * 100)
+        ats_readability_score = round((readability_score / 20) * 100)
 
-        ats_score = (
+        ats_score = round(
                     (ats_keyword_score * 0.50) + 
                     (ats_structure_score * 0.30) + 
                     (ats_readability_score * 0.20))
